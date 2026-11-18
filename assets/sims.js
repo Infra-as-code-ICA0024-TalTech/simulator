@@ -45,7 +45,7 @@ window.SIMS = [
   { id: 'partial-state', group: 'servers', title: 'Removing from code is not removing from the server', lecture: 3, status: 'coming',
     idea: 'Config tools manage only what the code mentions; removal needs an explicit step.',
     icon: '<rect class="r" x="4" y="8" width="24" height="10" rx="3"/><rect class="m" x="4" y="22" width="24" height="10" rx="3"/><path class="xs" d="M38 14l12 12M50 14L38 26" fill="none" stroke-width="3"/>' },
-  { id: 'plan-and-state', group: 'resources', title: 'Code, state, cloud', lecture: 5, status: 'coming',
+  { id: 'plan-and-state', group: 'resources', title: 'Code, state, cloud', lecture: 5, status: 'ready',
     idea: 'The tool compares code with state and plans only the difference.',
     icon: '<rect class="m" x="3" y="8" width="16" height="24" rx="3"/><rect class="a" x="24" y="8" width="16" height="24" rx="3"/><rect class="t" x="45" y="8" width="16" height="24" rx="3"/>' },
   { id: 'dependency-graph', group: 'resources', title: 'Dependency graph', lecture: 5, status: 'coming',

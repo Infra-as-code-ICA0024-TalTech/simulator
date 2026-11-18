@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code, state, cloud · IaC concepts</title>
+<link rel="stylesheet" href="../assets/frame.css">
+<script src="../assets/sims.js"></script>
+<script src="../assets/frame.js"></script>
+<style>
+.ctitle { font-size: 30px; font-weight: 700; color: var(--edge); white-space: nowrap; line-height: 40px; }
+.ctitle span { font-size: 18px; font-weight: 400; color: var(--muted); margin-left: 10px; }
+.ctitle.compact { font-size: 24px; line-height: 30px; }
+.ctitle.compact span { display: block; margin: 0; font-size: 15px; line-height: 20px; }
+.col { background: var(--surface); border: 2px solid var(--line); border-radius: 14px; }
+.col.on { border-color: var(--accent); box-shadow: var(--ring); }
+.cell { border-radius: 9px; display: flex; align-items: center; gap: 10px; padding: 0 14px; overflow: hidden; }
+.cell .nm { font-family: var(--font-mono); font-size: 21px; line-height: 26px; color: var(--text); white-space: nowrap; }
+.cell .sb { font-size: 15px; line-height: 19px; color: var(--muted); white-space: nowrap; }
+.cell .sb.hand { color: var(--warn); font-weight: 700; }
+.cell .val { margin-left: auto; font-family: var(--font-mono); font-size: 18px; line-height: 24px; padding: 1px 10px;
+  border: 2px solid var(--line); border-radius: 6px; background: var(--surface-2); color: var(--text); white-space: nowrap; }
+.cell .val.warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.cell.code { background: var(--surface-2); border: 2px solid var(--line-strong); }
+.cell.code .val { background: var(--surface); }
+.cell.state { background: var(--surface); border: 2px solid var(--line-strong); }
+.cell.cloud { background: var(--surface); border: 3px solid var(--edge); }
+.cell.none { justify-content: center; border: 2px dashed var(--line-strong); background: transparent; color: var(--muted);
+  font-size: 17px; white-space: nowrap; }
+.cell.doomed { border-color: var(--bad); background: var(--bad-bg); }
+.cell.doomed .nm { color: var(--bad); text-decoration: line-through; }
+.cell.hot { border-color: var(--accent); box-shadow: var(--ring); }
+.cell.compact { flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; padding: 0 10px; }
+.cell.compact .nm { font-size: 18px; line-height: 22px; }
+.cell.compact .sb { display: none; }
+.cell.compact .val { margin-left: 0; font-size: 16px; line-height: 20px; padding: 0 8px; }
+.cell.none.compact { align-items: center; font-size: 15px; }
+.pt { border: 2px solid transparent; border-radius: 9px; display: flex; flex-direction: column; justify-content: center;
+  align-items: center; text-align: center; line-height: 1.15; white-space: nowrap; overflow: hidden; }
+.pt b { font-size: 19px; }
+.pt span { font-family: var(--font-mono); font-size: 15px; margin-top: 3px; }
+.pt.create { border-color: var(--read); background: var(--read-bg); color: var(--read); }
+.pt.update { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.pt.destroy { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+.pt.same, .pt.unmanaged { background: var(--skip-bg); color: var(--muted); }
+.pt.same b { font-weight: 400; font-size: 17px; }
+.pt.done { background: var(--read-bg); color: var(--read); }
+.pt.compact b { font-size: 16px; }
+.pt.compact span { font-size: 13px; }
+.pc { font-family: var(--font-mono); font-size: 18px; line-height: 30px; text-align: center; border-radius: 999px;
+  border: 2px solid transparent; white-space: nowrap; }
+.pc.off { background: var(--skip-bg); color: var(--muted); }
+.pc.add { border-color: var(--read); background: var(--read-bg); color: var(--read); }
+.pc.chg { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.pc.del { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+.status { font-size: 16px; font-weight: 700; line-height: 32px; text-align: center; border-radius: 999px; white-space: nowrap;
+  border: 2px solid var(--line); background: var(--surface-2); color: var(--muted); overflow: hidden; }
+.status.busy { border-color: var(--info); background: var(--info-bg); color: var(--info); }
+.status.warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.status.read { border-color: var(--read); background: var(--read-bg); color: var(--read); }
+.status.compact { font-size: 14px; }
+</style>
+</head>
+<body>
+<script>
+(function () {
+  // every resource the sim can show, in row order, with its kind
+  var ORDER = ['web-1', 'web-2', 'db-1', 'logs', 'test-vm'];
+  var KIND = { 'web-1': 'server', 'web-2': 'server', 'db-1': 'database', 'logs': 'bucket', 'test-vm': 'server' };
+  var START = { 'web-1': 'small', 'db-1': 'medium', 'logs': 'private' };
+  var COLS = [{ id: 'code', t: 'Code', s: 'what you want' }, { id: 'state', t: 'State', s: 'what the tool made' },
+    { id: 'cloud', t: 'Cloud', s: 'what really exists' }, { id: 'plan', t: 'Plan' }];
+  var TAG = { create: '+ create', update: '~ update', destroy: '- destroy', same: 'no change', unmanaged: 'not managed' };
+  var DONE = { create: 'created', update: 'updated', destroy: 'destroyed' };
+  var STATUS = { refresh: ['busy', 'reading the cloud'], compare: ['busy', 'comparing'], ready: ['warn', 'ready to apply'],
+    none: ['read', 'no changes'], applying: ['busy', 'applying'], applied: ['read', 'applied'] };
+
+  function res(v, note) { return { v: v, note: note || null }; }
+  function fill() { var m = {}; Object.keys(START).forEach(function (n) { m[n] = res(START[n]); }); return m; }
+  function fresh() {
+    return { code: fill(), state: fill(), cloud: fill(), plan: null, active: [], hot: {}, edit: 0, hand: 0 };
+  }
+  function list(a) { return a.length < 2 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
+  function counts(items) {
+    var k = { create: 0, update: 0, destroy: 0 };
+    Object.keys(items).forEach(function (n) { if (items[n].type in k) k[items[n].type]++; });
+    k.total = k.create + k.update + k.destroy;
+    return k;
+  }
+  function chips(k) { return '+' + k.create + ' ~' + k.update + ' -' + k.destroy; }
+
+  /* Plan: refresh the state from the cloud (only what the state lists), then compare the code with the state. */
+  async function plan(s, sim, fast) {
+    var w = fast ? 520 : 850, drift = 0;
+    s.hot = {}; s.plan = { status: 'refresh', items: null }; s.active = ['state', 'cloud'];
+    sim.render(); await sim.wait(w);
+    Object.keys(s.state).forEach(function (n) {
+      var c = s.cloud[n];
+      if (!c) { delete s.state[n]; s.hot['state:' + n] = true; drift++; }
+      else if (c.v !== s.state[n].v) { s.state[n].v = c.v; s.hot['state:' + n] = true; drift++; }
+    });
+    sim.render(); await sim.wait(w);
+    s.plan.status = 'compare'; s.active = ['code', 'state', 'plan'];
+    sim.render(); await sim.wait(w * 0.7);
+    var items = {};
+    ORDER.forEach(function (n) {
+      var c = s.code[n], st = s.state[n];
+      if (c && !st) items[n] = { type: 'create', to: c.v };
+      else if (!c && st) items[n] = { type: 'destroy' };
+      else if (c && st) items[n] = c.v === st.v ? { type: 'same' } : { type: 'update', from: st.v, to: c.v };
+      else if (s.cloud[n]) items[n] = { type: 'unmanaged' };
+    });
+    s.plan = { status: counts(items).total ? 'ready' : 'none', items: items, drift: drift };
+    sim.render(); await sim.wait(w * 0.6);
+    s.active = [];
+  }
+
+  /* Apply: without a current plan, plan first; then change the cloud and record the result in the state. */
+  async function apply(s, sim, fast) {
+    var w = fast ? 520 : 850, replanned = false;
+    if (!s.plan || (s.plan.status !== 'ready' && s.plan.status !== 'none')) { await plan(s, sim, true); replanned = true; }
+    var items = s.plan.items, k = counts(items);
+    if (!k.total) return { k: k, replanned: replanned };
+    var todo = ORDER.filter(function (n) { return items[n] && DONE[items[n].type]; });
+    s.hot = {}; s.plan.status = 'applying'; s.active = ['cloud'];
+    sim.render(); await sim.wait(w * 0.5);
+    todo.forEach(function (n) {
+      if (items[n].type === 'destroy') delete s.cloud[n];
+      else { s.cloud[n] = res(s.code[n].v); s.hot['cloud:' + n] = true; }
+    });
+    sim.render(); await sim.wait(w);
+    s.active = ['state'];
+    todo.forEach(function (n) {
+      if (items[n].type === 'destroy') delete s.state[n];
+      else { s.state[n] = res(s.code[n].v); s.hot['state:' + n] = true; }
+    });
+    sim.render(); await sim.wait(w);
+    s.plan.status = 'applied'; s.active = [];
+    return { k: k, replanned: replanned };
+  }
+
+  function planText(s) {
+    var it = s.plan.items, by = { create: [], update: [], destroy: [] }, un = [], k = counts(it);
+    ORDER.forEach(function (n) {
+      if (!it[n]) return;
+      if (by[it[n].type]) by[it[n].type].push(n);
+      if (it[n].type === 'unmanaged') un.push(n);
+    });
+    if (!k.total) return 'Plan: no changes, code and state agree.' +
+      (un.length ? ' ' + list(un) + ' is not in the state, so the plan ignores it.' : '');
+    var parts = [];
+    if (by.create.length) parts.push('create ' + list(by.create));
+    if (by.update.length) parts.push('change ' + list(by.update));
+    if (by.destroy.length) parts.push('destroy ' + list(by.destroy));
+    var t = 'Plan: ' + chips(k) + '. It would ' + (parts.length > 1 ? parts.slice(0, -1).join(', ') + ', and ' : '') +
+      parts[parts.length - 1] + '.';
+    var note = s.plan.drift > 1 ? ' The refresh found changes made by hand.' : ' The refresh found a change made by hand.';
+    return s.plan.drift && (t + note).length <= 120 ? t + note : t;
+  }
+  function applyText(r) {
+    if (!r.k.total) return 'Apply: no changes. Code and state agree, so there is nothing to do.';
+    return (r.replanned ? 'Apply made a fresh plan first, then: ' : 'Apply: ') + r.k.create + ' added, ' + r.k.update +
+      ' changed, ' + r.k.destroy + ' destroyed. The state records the result.';
+  }
+
+  /* Edit code: toggles, in turn, the bucket, the database size and web-2. */
+  function editCode(s) {
+    var what = ['logs', 'db-1', 'web-2'][s.edit % 3], c = s.code, t;
+    s.edit++; s.plan = null; s.hot = {};
+    if (what === 'db-1' && c['db-1']) {
+      c['db-1'] = res(c['db-1'].v === 'medium' ? 'large' : 'medium');
+      t = 'You change db-1 to ' + c['db-1'].v + ' in the code.';
+    } else if (c[what]) { delete c[what]; t = 'You delete ' + what + ' from the code.'; }
+    else { c[what] = res(START[what] || 'small'); t = 'You add ' + what + ' to the code.'; }
+    if (c[what]) s.hot['code:' + what] = true;
+    return t + ' Nothing in the cloud changes until you plan and apply.';
+  }
+
+  /* Console change: in turn, resize web-1, delete a resource, create or delete test-vm, all by hand. */
+  function consoleChange(s) {
+    var what = ['resize', 'delete', 'create'][s.hand % 3], cl = s.cloud;
+    s.hand++; s.plan = null; s.hot = {};
+    var gone = ['web-2', 'logs', 'db-1'].filter(function (n) { return cl[n]; })[0];
+    if (what === 'delete' && gone) {
+      delete cl[gone];
+      return 'Someone deletes ' + gone + ' in the console. The state still lists it until the next refresh.';
+    }
+    if (what === 'create') {
+      if (cl['test-vm']) { delete cl['test-vm']; return 'Someone deletes test-vm in the console. The tool never knew it, so its state stays the same.'; }
+      cl['test-vm'] = res('small', 'made by hand'); s.hot['cloud:test-vm'] = true;
+      return 'Someone creates test-vm in the console. It is not in the state, so the tool will not manage it.';
+    }
+    cl['web-1'] = res(cl['web-1'] && cl['web-1'].v === 'large' ? 'medium' : 'large', 'changed by hand');
+    s.hot['cloud:web-1'] = true;
+    return 'Someone changes web-1 to ' + cl['web-1'].v + ' in the console. Only the cloud changed; the state does not know.';
+  }
+
+  function geometry(sim) {
+    if (!sim.portrait) return { xs: [20, 330, 640, 950], ws: [290, 290, 290, 230], titleH: 40, colY: 50, colB: 534,
+      y0: 62, pitch: 86, cellH: 70, statusY: 486, chipX: 1036, chipY: 5, compact: false };
+    return { xs: [10, 166, 322, 478], ws: [146, 146, 146, 152], titleH: 56, colY: 80, colB: 580,
+      y0: 92, pitch: 86, cellH: 70, statusY: 532, chipX: 478, chipY: 38, compact: true };
+  }
+
+  function html(el, h) { if (el._h !== h) { el.innerHTML = h; el._h = h; } return el; }
+
+  Sim.create({
+    id: 'plan-and-state',
+    size: [1200, 540],
+    portrait: [640, 590],
+    autoDelay: 3000,
+    recap: {
+      remember: 'The tool compares the code with its state, refreshed from the cloud, and plans only the difference: <code>+</code> create, <code>~</code> change, <code>-</code> destroy.',
+      mistake: 'Fixing things by hand in the console. The state does not record it, and the next apply usually sets the resource back to what the code says. Change the code instead, and read every <code>-</code> in a plan before you apply.',
+      simplified: 'Each resource has one setting here. A real plan refreshes the state only in memory and apply saves it; the drawing updates the state column during the plan to show the refresh. Real state also holds IDs and every attribute, and a team keeps it in a shared, locked place (see Shared state and locking).',
+      lecture: 'Lecture 5'
+    },
+    state: fresh,
+
+    render: function (s, sim) {
+      var G = geometry(sim), P = s.plan, items = P && P.items;
+      COLS.forEach(function (c, i) {
+        var t = html(sim.box('t-' + c.id, 'ctitle' + (G.compact ? ' compact' : '')),
+          c.t + (c.s ? '<span>' + c.s + '</span>' : ''));
+        sim.place(t, G.xs[i] + 4, 4, G.ws[i] - 4, G.titleH);
+        sim.place(sim.box('col-' + c.id, 'col' + (s.active.indexOf(c.id) >= 0 ? ' on' : '')), G.xs[i], G.colY, G.ws[i], G.colB - G.colY);
+      });
+
+      // one row per resource that exists anywhere (or was just destroyed by the last apply)
+      var rows = ORDER.filter(function (n) { return s.code[n] || s.state[n] || s.cloud[n] || (items && items[n]); });
+      rows.forEach(function (n, r) {
+        var y = G.y0 + r * G.pitch, it = items && items[n];
+        var doomed = it && it.type === 'destroy' && (P.status === 'ready' || P.status === 'applying');
+        ['code', 'state', 'cloud'].forEach(function (cid, i) {
+          var x = G.xs[i] + 10, w = G.ws[i] - 20, o = s[cid][n];
+          if (!o) {
+            sim.place(sim.box('n-' + cid + '-' + n, 'cell none' + (G.compact ? ' compact' : '')), x, y, w, G.cellH)
+              .textContent = G.compact ? 'none' : 'not in ' + cid;
+            return;
+          }
+          var cls = 'cell ' + cid + (G.compact ? ' compact' : '') + (doomed && cid !== 'code' ? ' doomed' : '') +
+            (s.hot[cid + ':' + n] ? ' hot' : '');
+          var off = cid !== 'code' && s.code[n] && s.code[n].v !== o.v;   // differs from what the code wants
+          var sub = o.note ? '<div class="sb hand">' + o.note + '</div>' : '<div class="sb">' + KIND[n] + '</div>';
+          sim.place(html(sim.box('c-' + cid + '-' + n, cls),
+            '<div><div class="nm">' + n + '</div>' + sub + '</div><div class="val' + (off ? ' warn' : '') + '">' + o.v + '</div>'),
+            x, y, w, G.cellH);
+        });
+        if (it) {
+          var applied = P.status === 'applied' && DONE[it.type];
+          var sub2 = it.type === 'update' ? it.from + ' -> ' + it.to : it.type === 'create' ? it.to :
+            it.type === 'unmanaged' ? 'not in state' : '';
+          sim.place(html(sim.box('pt-' + n, 'pt ' + (applied ? 'done' : it.type) + (G.compact ? ' compact' : '')),
+            '<b>' + (applied ? DONE[it.type] : TAG[it.type]) + '</b>' + (sub2 ? '<span>' + sub2 + '</span>' : '')),
+            G.xs[3] + 10, y + 7, G.ws[3] - 20, G.cellH - 14);
+        }
+      });
+
+      // the plan's summary chips and status
+      if (items) {
+        var k = counts(items);
+        [['add', '+', k.create], ['chg', '~', k.update], ['del', '-', k.destroy]].forEach(function (p, i) {
+          var on = p[2] && P.status !== 'applied';
+          sim.place(sim.box('pc-' + p[0], 'pc ' + (on ? p[0] : 'off')), G.chipX + i * 50, G.chipY, 44, 34).textContent = p[1] + p[2];
+        });
+      }
+      var st = P ? STATUS[P.status] : ['', 'no current plan'];
+      sim.place(sim.box('status', 'status ' + st[0] + (G.compact ? ' compact' : '')), G.xs[3] + 10, G.statusY, G.ws[3] - 20, 36).textContent = st[1];
+    },
+
+    intro: { caption: 'Code, state and cloud agree: web-1, a database and a bucket. The state is the record of what the tool made.',
+      why: 'The code says what you want, the cloud is what really exists, and the state lists what the tool created, with the settings it last saw. With that record the tool can work out what to change instead of starting from zero every time.',
+      code: 'terraform state list' },
+    steps: [
+      { caption: 'You add web-2 to the code. Plan compares code with state: web-2 is not in the state, so the plan says +1.',
+        why: 'The tool does not search the cloud for work. It compares the code with its state: anything in the code but not in the state is something to create. Planning first shows the change before anything is touched.',
+        code: 'terraform plan',
+        run: async function (s, sim) {
+          s.code['web-2'] = res('small'); s.hot = { 'code:web-2': true };
+          sim.render(); await sim.wait(1000); await plan(s, sim);
+        } },
+      { caption: 'Apply creates web-2 in the cloud, then records it in the state. Code, state and cloud agree again.',
+        why: 'Apply makes the planned change and then writes the result into the state. The next plan finds web-2 in both code and state and plans nothing for it. Without that record, the next run would usually try to create web-2 a second time.',
+        code: 'terraform apply',
+        run: function (s, sim) { return apply(s, sim); } },
+      { caption: 'You delete the bucket from the code. It is still in the state, so the plan says -1: destroy logs.',
+        why: 'In the state but no longer in the code means: destroy. This is what the state buys you. A configuration tool that only runs the code would usually stop managing the bucket and leave it behind. Read every -1 in a plan before you apply it.',
+        code: 'terraform plan',
+        run: async function (s, sim) {
+          delete s.code.logs; s.plan = null; s.hot = {};
+          sim.render(); await sim.wait(1000); await plan(s, sim);
+        } },
+      { caption: 'Apply destroys the bucket in the cloud and removes it from the state. Nothing is left behind.',
+        why: 'A destroy usually cannot be undone: the data in a deleted bucket or database is gone. That is why teams review the plan before apply, and why important resources are often protected against deletion in the code.',
+        code: 'terraform apply',
+        run: function (s, sim) { return apply(s, sim); } },
+      { caption: 'Someone resizes web-1 to large in the web console. Only the cloud changed: state and code still say small.',
+        why: 'A change by hand bypasses both the code and the state, so nothing records it. The tool learns about it only when it reads the cloud again. Until then the state is out of date, and the drift is easy to miss.',
+        code: '',
+        run: function (s) {
+          s.cloud['web-1'] = res('large', 'changed by hand'); s.plan = null; s.hot = { 'cloud:web-1': true };
+        } },
+      { caption: 'Plan first refreshes the state from the cloud and finds large. The code says small, so the plan says ~1.',
+        why: 'Before comparing, the tool reads every resource in its state from the cloud, and that is how drift shows up. The code wins: the plan wants web-1 back at small. If large was the right size, change the code, not the console.',
+        code: 'terraform plan',
+        run: function (s, sim) { return plan(s, sim); } },
+      { caption: 'Apply sets web-1 back to small: code, state and cloud agree. Now try the buttons yourself.',
+        why: 'Apply undid the change by hand: right for drift, a surprise for whoever needed it. Try the buttons: edit the code or change the cloud by hand, then Plan and Apply. Plan only reads and compares; only Apply changes the cloud.',
+        code: 'terraform apply',
+        buttons: ['edit', 'console', 'plan', 'apply'],
+        run: function (s, sim) { return apply(s, sim); } }
+    ],
+    buttons: {
+      edit: { label: 'Edit code', caption: 'You edit the code.',
+        why: 'Editing the code changes nothing in the cloud by itself. The next plan compares the new code with the state: in the code only means +, a different setting means ~, gone from the code means -.',
+        code: '',
+        run: function (s, sim) { sim.say(editCode(s)); } },
+      console: { label: 'Console change', caption: 'Someone changes the cloud by hand.',
+        why: 'A change by hand reaches the cloud only. The state keeps its old values until the next refresh. A resource made by hand is not in the state at all, so the tool neither plans for it nor deletes it.',
+        code: '',
+        run: function (s, sim) { sim.say(consoleChange(s)); } },
+      plan: { label: 'Plan', caption: 'The tool refreshes the state from the cloud and compares it with the code.',
+        why: 'Plan reads the cloud, compares it with the code and lists the difference. It changes nothing in the cloud, so it is safe to run as often as you like.',
+        code: 'terraform plan',
+        run: async function (s, sim) { await plan(s, sim, true); sim.say(planText(s)); } },
+      apply: { label: 'Apply', caption: 'The tool carries out the plan and records the result in the state.',
+        why: 'Without a current plan, apply first makes a fresh one. Then it changes the cloud and records the result in the state. After a good apply, the next plan usually shows no changes.',
+        code: 'terraform apply',
+        run: async function (s, sim) { var r = await apply(s, sim, true); sim.say(applyText(r)); } }
+    }
+  });
+})();
+</script>
+</body>
+</html>
