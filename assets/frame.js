@@ -90,6 +90,11 @@
     }).join('');
   }
 
+  function copyrightHtml() {
+    return '<p class="copyright">\u00a9 2011-' + new Date().getFullYear() + ' Andrey Adamovich \u00b7 ' +
+      '<a href="https://extremeautomation.io" rel="noopener" target="_blank">extremeautomation.io</a></p>';
+  }
+
   function create(def) {
     var meta = registry().find(function (x) { return x.id === def.id; }) || { title: def.id };
     var steps = def.steps || [], buttons = def.buttons || {}, intro = def.intro || { caption: '' };
@@ -99,9 +104,9 @@
     document.body.classList.add('sim');
     document.body.insertAdjacentHTML('afterbegin',
       '<header class="topbar">' +
-        '<a class="tb-home" href="' + esc(home) + '" title="All simulations (Esc)">' +
-          '<img src="' + esc(ASSETS + 'logo.svg') + '" alt="eXtreme Automation: all simulations" height="26"></a>' +
-        '<h1 class="tb-title">' + esc(meta.title) + '</h1>' +
+        '<a class="tb-home" href="https://extremeautomation.io" rel="noopener" target="_blank" aria-label="eXtreme Automation">' +
+          '<img src="' + esc(ASSETS + 'logo.svg') + '" alt="eXtreme Automation" height="26"></a>' +
+        '<h1 class="tb-title"><a class="tb-sims" href="' + esc(home) + '" title="All simulations (Esc)">' + esc(meta.title) + '</a></h1>' +
         '<span class="tb-step"></span><span class="tb-spacer"></span>' +
         '<button class="tb-mode" title="Lecture or Study mode (S)">' +
           '<span data-m="lecture">Lecture</span><span data-m="study">Study</span></button>' +
@@ -127,7 +132,7 @@
         '<div class="codeline empty"><b>In code:</b> <code></code></div>' +
       '</footer>' +
       (recap ? '<div class="note" role="dialog" aria-label="Recap" hidden><button class="close" title="Close (Esc)">×</button>' +
-        '<h2>Recap</h2>' + recapHtml(recap) + '</div>' : ''));
+        '<h2>Recap</h2>' + recapHtml(recap) + copyrightHtml() + '</div>' : ''));
     var $ = function (sel) { return document.querySelector(sel); };
     var stage = $('.stage'), canvas = $('.canvas'), captionEl = $('.caption'), whyEl = $('.whyline'), whyBtn = $('.tb-why'),
         codeEl = $('.codeline'), actionsEl = $('.actions'), stepEl = $('.tb-step'), noteEl = $('.note'), modeBtn = $('.tb-mode');

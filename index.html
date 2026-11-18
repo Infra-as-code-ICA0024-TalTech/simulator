@@ -12,7 +12,7 @@
 </head>
 <body class="home">
 <header class="topbar home-head">
-  <a class="tb-home" href="index.html" title="All simulations"><img src="assets/logo.svg" alt="eXtreme Automation"></a>
+  <a class="tb-home" href="https://extremeautomation.io" rel="noopener" target="_blank" aria-label="eXtreme Automation"><img src="assets/logo.svg" alt="eXtreme Automation"></a>
 </header>
 <div class="home-wrap">
   <section class="c-hero">
@@ -24,7 +24,9 @@
     <kbd>A</kbd> auto-play, <kbd>S</kbd> Lecture or Study mode, <kbd>W</kbd> why, <kbd>Esc</kbd> back here.</p>
   <main id="groups"></main>
 </div>
+<footer class="site-footer">&copy; 2011-<span id="year">2026</span> Andrey Adamovich &middot; <a href="https://extremeautomation.io" rel="noopener">extremeautomation.io</a></footer>
 <script>
+document.getElementById('year').textContent = new Date().getFullYear();
 (function () {
   var main = document.getElementById('groups');
   var n = 0;

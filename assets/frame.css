@@ -67,6 +67,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tb-title { margin: 0; padding-left: 14px; border-left: 1px solid var(--line); color: var(--edge);
   font-size: clamp(19px, 1.1vw + 7px, 30px); font-weight: 700; line-height: 1.2;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tb-title a { color: inherit; text-decoration: none; }
+.tb-title a:hover { text-decoration: underline; }
 .tb-step { font-family: var(--font-mono); font-size: clamp(13px, .35vw + 9px, 19px); color: var(--muted);
   border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 11px; white-space: nowrap;
   font-variant-numeric: tabular-nums; }
@@ -142,6 +144,8 @@ body.sim { display: flex; flex-direction: column; height: 100vh; height: 100dvh;
 .note h3.remember { color: var(--accent-text); }
 .note p { margin: 0; }
 .note code { font-size: .88em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; color: var(--edge); }
+.note .copyright { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.note .copyright a { color: inherit; text-decoration: underline; }
 .note .close { float: right; margin: -6px -10px 0 10px; background: none; border: 0; font-size: 24px; color: var(--muted); }
 
 /* Narrow screens: the page may scroll; the stage gets its height from the drawing (set by frame.js). */
@@ -217,3 +221,7 @@ a.card:hover { box-shadow: var(--shadow); border-color: var(--line-strong); }
   .c-hero h1 { font-size: 2rem; }
   .grid { grid-template-columns: 1fr; }
 }
+
+/* start page footer */
+.site-footer { padding: 16px 24px 32px; text-align: center; font-size: 14px; color: var(--muted); }
+.site-footer a { color: inherit; text-decoration: underline; }

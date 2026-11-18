@@ -11,7 +11,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "assets" / "sims.js"
 ALLOWED_URLS = {"http://www.w3.org/2000/svg"}  # SVG namespace inside inline icons, not a request
 # Credit links in a sim's (i) note: a link the trainer may click, never loaded by the page. Only as href="...".
-CREDIT_LINKS = set()
+CREDIT_LINKS = {"https://extremeautomation.io"}  # brand link: logo and copyright line
 FRAME_FILES = ("../assets/frame.css", "../assets/sims.js", "../assets/frame.js")
 EXPECTED_IDS = (
     "idempotence", "desired-state", "imperative-declarative",
