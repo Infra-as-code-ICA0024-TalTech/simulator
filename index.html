@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concept simulators</title>
+<meta name="description" content="Small animated simulations of Infrastructure as Code concepts, one idea each, for TalTech course ICA0024.">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/frame.css">
+<script src="assets/sims.js"></script>
+<script src="assets/frame.js"></script>
+</head>
+<body class="home">
+<header class="topbar home-head">
+  <a class="tb-home" href="index.html" title="All simulations"><img src="assets/logo.svg" alt="eXtreme Automation"></a>
+</header>
+<div class="home-wrap">
+  <section class="c-hero">
+    <div class="eyebrow">ICA0024 Infrastructure as Code</div>
+    <h1>Concept <span class="hl">simulators</span></h1>
+    <p>Small animated simulations, one concept each. Step through what happens and why, in the lecture or on your own.</p>
+  </section>
+  <p class="howto"><b>How to use:</b> <kbd>&rarr;</kbd> or <kbd>Space</kbd> next step, <kbd>&larr;</kbd> back, <kbd>R</kbd> reset,
+    <kbd>A</kbd> auto-play, <kbd>S</kbd> Lecture or Study mode, <kbd>W</kbd> why, <kbd>Esc</kbd> back here.</p>
+  <main id="groups"></main>
+</div>
+<script>
+(function () {
+  var main = document.getElementById('groups');
+  var n = 0;
+  (window.SIM_GROUPS || []).forEach(function (g) {
+    var sims = Sim.registry().filter(function (s) { return s.group === g.id; });
+    if (!sims.length) return;
+    var sec = document.createElement('section');
+    sec.className = 'group';
+    sec.id = g.id;
+    sec.innerHTML = '<h2 class="group-title"></h2><p class="group-idea"></p><div class="grid"></div>';
+    sec.querySelector('h2').textContent = g.title;
+    sec.querySelector('p').textContent = g.idea || '';
+    var grid = sec.querySelector('.grid');
+    sims.forEach(function (s) {
+      var ready = s.status === 'ready';
+      var card = document.createElement(ready ? 'a' : 'div');
+      card.className = 'card' + (ready ? '' : ' coming');
+      if (ready) card.href = 'sims/' + s.id + '.html';
+      card.innerHTML =
+        '<span class="num">' + (++n) + '</span>' +
+        '<svg class="ic" viewBox="0 0 64 40" aria-hidden="true">' + s.icon + '</svg>' +
+        '<h3></h3><p></p><div class="badges"><span class="badge b-info"></span>' +
+        (ready ? '' : '<span class="badge b-neutral">Coming soon</span>') + '</div>';
+      card.querySelector('h3').textContent = s.title;
+      card.querySelector('p').textContent = s.idea;
+      card.querySelector('.b-info').textContent = 'Lecture ' + s.lecture;
+      grid.appendChild(card);
+    });
+    main.appendChild(sec);
+  });
+})();
+</script>
+</body>
+</html>

@@ -168,3 +168,52 @@ body.sim { display: flex; flex-direction: column; height: 100vh; height: 100dvh;
 .instant .canvas .k, .instant .canvas .k * { transition: none !important; animation: none !important; }
 .lbl { color: var(--muted); font-size: 22px; font-weight: 700; white-space: nowrap; }
 .big { font-size: 56px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: var(--edge); }
+
+/* ---------- start page (index.html) ---------- */
+body.home { height: auto; min-height: 100%; }
+.home-head { padding: 0 24px; }
+.home-wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 56px; }
+.c-hero { padding: 44px 0 20px; }
+.c-hero .eyebrow { color: var(--accent-text); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: .8rem; }
+.c-hero h1 { font-size: 2.6rem; margin: 8px 0 10px; letter-spacing: -.02em; color: var(--edge); line-height: 1.15; }
+.c-hero h1 .hl { background: linear-gradient(transparent 60%, var(--xa-rose-soft) 60%); padding: 0 3px; font-style: normal; }
+.c-hero p { font-size: 1.1rem; color: var(--muted); max-width: 780px; margin: 0; }
+.howto { margin: 18px 0 8px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-md); box-shadow: var(--shadow-sm); color: var(--muted); font-size: .95rem; }
+.howto b { color: var(--edge); }
+.howto kbd { font-family: var(--font-mono); font-size: .85em; background: var(--surface-2); color: var(--edge);
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm); padding: 1px 6px; }
+.group { padding-top: 30px; scroll-margin-top: 12px; }
+.group-title { margin: 0; font-size: 1.5rem; color: var(--edge); }
+.group-idea { margin: 2px 0 14px; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.card { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 16px 18px 16px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-sm);
+  color: var(--text); text-decoration: none; }
+a.card:hover { box-shadow: var(--shadow); border-color: var(--line-strong); }
+.card.coming { background: #fafafc; }
+.card.coming .ic { opacity: .55; }
+.card .num { position: absolute; top: 12px; right: 14px; font-family: var(--font-mono); font-size: .8rem; color: var(--skip); }
+.card .ic { width: 64px; height: 40px; margin-bottom: 4px; }
+.card h3 { margin: 0; font-size: 1.12rem; color: var(--edge); line-height: 1.25; }
+.card p { margin: 0; color: var(--muted); font-size: .95rem; }
+.card .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 8px; }
+.badge { display: inline-flex; align-items: center; font-size: .76rem; font-weight: 700; padding: 3px 9px;
+  border-radius: 999px; line-height: 1.3; white-space: nowrap; }
+.b-neutral { background: var(--surface-2); color: var(--muted); }
+.b-warn { background: var(--warn-bg); color: var(--warn); }
+.b-info { background: var(--info-bg); color: var(--info); }
+/* card icon classes mapped to XA colours */
+.ic .a { fill: var(--xa-rose); }
+.ic .m { fill: var(--xa-muted); }
+.ic .t { fill: var(--xa-navy); }
+.ic .s { stroke: var(--xa-navy); }
+.ic .r { fill: var(--xa-green); }
+.ic .x { fill: var(--xa-maroon); }
+.ic .xs { stroke: var(--xa-maroon); }
+@media (max-width: 640px) {
+  .home-head { padding: 0 16px; }
+  .home-wrap { padding: 0 16px 40px; }
+  .c-hero h1 { font-size: 2rem; }
+  .grid { grid-template-columns: 1fr; }
+}
