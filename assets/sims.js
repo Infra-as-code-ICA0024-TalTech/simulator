@@ -60,7 +60,7 @@ window.SIMS = [
   { id: 'quality-pipeline', group: 'modularity', title: 'Checks in order', lecture: 7, status: 'coming',
     idea: 'Cheap fast checks first, slow realistic ones later.',
     icon: '<rect class="r" x="2" y="12" width="12" height="16" rx="3"/><rect class="r" x="17" y="12" width="12" height="16" rx="3"/><rect class="a" x="32" y="12" width="12" height="16" rx="3"/><rect class="m" x="47" y="12" width="12" height="16" rx="3"/>' },
-  { id: 'gitops-loop', group: 'workflows', title: 'GitOps reconciliation', lecture: 9, status: 'coming',
+  { id: 'gitops-loop', group: 'workflows', title: 'GitOps reconciliation', lecture: 9, status: 'ready',
     idea: 'Git is the truth; an agent keeps the system matching it.',
     icon: '<circle class="s" cx="32" cy="20" r="13" fill="none" stroke-width="3" stroke-dasharray="60 22"/><circle class="a" cx="32" cy="20" r="5"/>' },
   { id: 'change-flow', group: 'workflows', title: 'Changing another team\'s infrastructure', lecture: 9, status: 'coming',

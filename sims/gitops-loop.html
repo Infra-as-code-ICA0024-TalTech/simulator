@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitOps reconciliation · IaC concepts</title>
+<link rel="stylesheet" href="../assets/frame.css">
+<script src="../assets/sims.js"></script>
+<script src="../assets/frame.js"></script>
+<style>
+.ctitle { font-size: 30px; font-weight: 700; color: var(--edge); white-space: nowrap; line-height: 40px; overflow: hidden; }
+.ctitle span { font-size: 18px; font-weight: 400; color: var(--muted); margin-left: 10px; }
+.ctitle.lane { font-size: 24px; line-height: 34px; }
+.ctitle.lane span { font-size: 17px; }
+.col { background: var(--surface); border: 2px solid var(--line); border-radius: 14px; }
+.col.live { border: 3px solid var(--edge); }
+.col.on { border-color: var(--accent); box-shadow: var(--ring); }
+.repo { font-family: var(--font-mono); font-size: 15px; line-height: 20px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+.cm { border: 2px solid var(--line-strong); border-radius: 9px; background: var(--surface); display: flex; align-items: center;
+  gap: 10px; padding: 0 10px; overflow: hidden; white-space: nowrap; }
+.cm .sha { font-family: var(--font-mono); font-size: 16px; color: var(--muted); flex: none; }
+.cm .msg { font-size: 18px; color: var(--text); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cm .tg { flex: none; font-size: 13px; font-weight: 700; line-height: 22px; padding: 0 8px; border-radius: 999px;
+  border: 2px solid var(--line-strong); color: var(--muted); background: var(--skip-bg); }
+.cm .tg.head { border-color: var(--edge); background: var(--edge); color: #ffffff; }
+.cm.old .msg, .cm.old .sha { color: var(--muted); }
+.cm.hot { border-color: var(--accent); box-shadow: var(--ring); }
+.man { border: 2px solid var(--line); border-radius: 9px; background: var(--surface-2); }
+.fn { font-family: var(--font-mono); font-size: 14px; line-height: 18px; color: var(--muted); white-space: nowrap; }
+.ln { font-family: var(--font-mono); font-size: 20px; line-height: 28px; color: var(--text); white-space: nowrap;
+  padding: 0 8px; border-radius: 6px; border: 2px solid transparent; }
+.ln.hot { border-color: var(--accent); background: var(--surface); box-shadow: var(--ring); }
+.ring { border-radius: 50%; border: 4px solid var(--line-strong); background: var(--surface-2); display: flex;
+  flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+.ring i { position: absolute; left: -4px; top: -4px; right: -4px; bottom: -4px; border-radius: 50%;
+  border: 6px solid transparent; }
+.ring b { font-size: 34px; color: var(--edge); font-variant-numeric: tabular-nums; }
+.ring span { font-size: 15px; color: var(--muted); margin-top: 4px; }
+.ring.read { border-color: var(--read); background: var(--read-bg); }
+.ring.warn { border-color: var(--warn); background: var(--warn-bg); }
+.ring.busy { border-color: var(--info); background: var(--info-bg); }
+.ring.busy i { border-top-color: var(--accent); animation: spin 900ms linear infinite; }
+.ring.sm b { font-size: 26px; }
+.ring.sm span { font-size: 13px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.status { font-size: 16px; font-weight: 700; line-height: 30px; text-align: center; border-radius: 999px; white-space: nowrap;
+  border: 2px solid var(--line); background: var(--surface-2); color: var(--muted); overflow: hidden; }
+.status.busy { border-color: var(--info); background: var(--info-bg); color: var(--info); }
+.status.warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.status.read { border-color: var(--read); background: var(--read-bg); color: var(--read); }
+.status.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+.sub { font-size: 15px; line-height: 20px; color: var(--muted); white-space: nowrap; text-align: center; overflow: hidden; }
+.sub.mono { font-family: var(--font-mono); color: var(--edge); }
+.sub.left { text-align: left; }
+.nm { font-size: 24px; font-weight: 700; color: var(--edge); line-height: 32px; white-space: nowrap; }
+.nm.sm { font-size: 20px; line-height: 28px; }
+.lbl2 { font-size: 18px; color: var(--muted); line-height: 36px; white-space: nowrap; }
+.note2 { font-size: 15px; font-weight: 700; color: var(--warn); line-height: 36px; white-space: nowrap; text-align: right; overflow: hidden; }
+.val { font-family: var(--font-mono); font-size: 19px; line-height: 32px; text-align: center; white-space: nowrap;
+  border: 2px solid var(--line-strong); border-radius: 6px; background: var(--surface-2); color: var(--text); overflow: hidden; }
+.val.warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.val.sm { font-size: 16px; line-height: 28px; }
+.pod { border: 2px solid var(--read); background: var(--read-bg); border-radius: 6px; }
+.pod.bad { border-color: var(--bad); background: var(--bad-bg); }
+.pod.extra { border-color: var(--warn); background: var(--warn-bg); }
+.pod.miss { border: 2px dashed var(--warn); background: transparent; }
+.wire { background: var(--line-strong); }
+.wire.dash { background: repeating-linear-gradient(90deg, var(--line-strong) 0 8px, transparent 8px 14px); }
+.wire.dash.v { background: repeating-linear-gradient(180deg, var(--line-strong) 0 8px, transparent 8px 14px); }
+.wire.on { background: var(--accent); }
+.ah { width: 0; height: 0; color: var(--line-strong); border: 0 solid transparent; }
+.ah.r { border-width: 8px 0 8px 13px; border-left-color: currentColor; }
+.ah.l { border-width: 8px 13px 8px 0; border-right-color: currentColor; }
+.ah.d { border-width: 13px 8px 0 8px; border-top-color: currentColor; }
+.ah.on { color: var(--accent); }
+.wl { font-size: 15px; font-weight: 700; color: var(--muted); line-height: 20px; text-align: center; white-space: nowrap; }
+.wl.on { color: var(--accent-text); }
+.divider { background: var(--line); }
+</style>
+</head>
+<body>
+<script>
+(function () {
+  var SHAS = ['3f9c2ab', 'b7e2a41', 'c9d04e1', 'e15a7f3', '4a8b0d2', '91c6e3f', 'd02f5b8', '7e4a1c9', 'a6d3f20', '58b1e7c',
+    'f3a90d6', '2c7e4b1', '6b0d93e', 'e8f21a7', '0d5c6b4', '97a3e2f'];
+  var BROKEN = { 'v1.5': true };   // the image that fails on start
+  var FIELDS = ['replicas', 'image'];
+  var STATUS = { synced: ['read', 'synced'], wait: ['', 'waiting for next loop'], pull: ['busy', 'pulling from Git'],
+    compare: ['busy', 'comparing'], out: ['warn', 'out of sync'], apply: ['busy', 'applying'] };
+
+  function sha(n) { return n < SHAS.length ? SHAS[n] : ('000000' + ((n * 2654435761) >>> 0).toString(16)).slice(-7); }
+  function spec(r, i) { return { replicas: r, image: i }; }
+  function fresh() {
+    return {
+      commits: [{ sha: sha(0), msg: 'deploy v1.3', spec: spec(2, 'v1.3') },
+                { sha: sha(1), msg: 'image v1.4, 3 replicas', spec: spec(3, 'v1.4') }],
+      n: 2, agent: { tick: 41, at: sha(1), status: 'synced' }, live: { replicas: 3, image: 'v1.4', hand: {} },
+      wires: {}, hot: {}, push: null, edits: 0, hands: 0, minor: 5
+    };
+  }
+  function head(s) { return s.commits[s.commits.length - 1]; }
+  function byShaIdx(s, x) { for (var i = 0; i < s.commits.length; i++) if (s.commits[i].sha === x) return i; return -1; }
+  function diffs(L, want) { return FIELDS.filter(function (f) { return L[f] !== want[f]; }); }
+
+  /* A new commit on top of HEAD: the desired state changes in Git, nothing else. */
+  function commit(s, change, msg, kind, of) {
+    var h = head(s), c = { sha: sha(s.n++), msg: msg, spec: spec(h.spec.replicas, h.spec.image), kind: kind || '', of: of || null };
+    Object.keys(change).forEach(function (f) { c.spec[f] = change[f]; });
+    s.commits.push(c);
+    s.hot = { ['c:' + c.sha]: true };
+    FIELDS.forEach(function (f) { if (c.spec[f] !== h.spec[f]) s.hot['m:' + f] = true; });
+    if (diffs(s.live, c.spec).length) s.agent.status = 'wait';
+    return c;
+  }
+  /* git revert HEAD: a new commit whose content is HEAD's parent; the reverted commit stays in history. */
+  function revert(s) {
+    var h = head(s), parent = s.commits[s.commits.length - 2];
+    var msg = h.kind === 'revert' ? 'Reapply "' + s.commits[byShaIdx(s, h.of)].msg + '"' : 'Revert "' + h.msg + '"';
+    var c = commit(s, parent.spec, msg, 'revert', h.sha);
+    h.revertedBy = c.sha;
+    return c;
+  }
+
+  /* One loop of the agent: pull the desired state, compare with the live system, apply the difference. */
+  async function tick(s, sim, fast) {
+    var A = s.agent, L = s.live, w = fast ? 480 : 800, want = head(s).spec;
+    A.tick++; A.status = 'pull'; s.wires = { pull: true };
+    sim.render(); await sim.wait(w);
+    A.status = 'compare'; s.wires = { read: true };
+    sim.render(); await sim.wait(w * 0.8);
+    var d = diffs(L, want);
+    if (d.length) {
+      A.status = 'out'; s.wires = {};
+      sim.render(); await sim.wait(w * 1.2);
+      A.status = 'apply'; s.wires = { apply: true };
+      d.forEach(function (f) { L[f] = want[f]; });
+      L.hand = {};
+      sim.render(); await sim.wait(w);
+    }
+    A.status = 'synced'; A.at = head(s).sha; s.wires = {};
+    return d;
+  }
+
+  /* The push pipeline: runs because of a push, deploys what Git says once, then stops. */
+  async function pipeline(s, sim, fast) {
+    var P = s.push, w = fast ? 480 : 800, want = head(s).spec;
+    var undid = Object.keys(P.live.hand).some(function (f) { return P.live.hand[f]; }) && diffs(P.live, want).length > 0;
+    P.status = 'running'; s.wires = { trig: true };
+    sim.render(); await sim.wait(w);
+    s.wires = { deploy: true };
+    P.live = { replicas: want.replicas, image: want.image, hand: {} };
+    sim.render(); await sim.wait(w);
+    P.status = 'idle'; P.ran = head(s).sha; s.wires = {};
+    sim.render(); await sim.wait(w * 0.5);
+    return undid;
+  }
+
+  /* A change by hand on the live system (and on the pushed copy, if there is one). */
+  function handEdit(s, what) {
+    var L = s.live, code;
+    s.hot = {};
+    if (what === 'scale') {
+      var r = L.replicas + 2;
+      code = 'kubectl scale deployment payments --replicas=' + r;
+      L.replicas = r; L.hand.replicas = true;
+      if (s.push) { s.push.live.replicas = r; s.push.live.hand.replicas = true; }
+    } else {
+      var img = head(s).spec.image + '-fix';
+      code = 'kubectl set image deployment/payments app=payments:' + img;
+      L.image = img; L.hand.image = true;
+      if (s.push) { s.push.live.image = img; s.push.live.hand.image = true; }
+    }
+    s.agent.status = 'wait';
+    return { what: what, code: code, r: L.replicas, img: L.image };
+  }
+
+  /* Commit button: alternately change the replicas (5, 3, 4, ...) or move to a newer image. */
+  function nextChange(s) {
+    var k = s.edits++, h = head(s).spec;
+    if (k % 2 === 0) {
+      var r = [5, 3, 4][(k / 2) % 3];
+      if (r === h.replicas) r = r === 4 ? 5 : 4;
+      return { change: { replicas: r }, msg: 'scale to ' + r + ' replicas' };
+    }
+    s.minor++;
+    return { change: { image: 'v1.' + s.minor }, msg: 'image v1.' + s.minor };
+  }
+
+  function hasHand(L) { return FIELDS.some(function (f) { return L.hand[f]; }); }
+  function sysText(L) { return L.replicas + ' pods of ' + L.image + (BROKEN[L.image] ? ', which fails' : ''); }
+  /* A caption that names the result when it fits in about 120 characters; a failing image is always named. */
+  function withResult(s, base) {
+    var full = base + ' Both run ' + sysText(s.live) + '.';
+    if (full.length <= 120) return full;
+    return BROKEN[s.live.image] ? base + ' ' + s.live.image + ' still fails.' : base;
+  }
+
+  function geometry(sim, push) {
+    if (!sim.portrait) {
+      var H = push ? 290 : 480;
+      return { land: true, titles: [[20, 390], [500, 220], [810, 370]], titleY: 4,
+        git: [20, 50, 390, H], agent: [500, 50, 220, H], live: [810, 50, 370, H],
+        laneT: [20, 350, 1160, 34], pgit: [20, 390, 390, 140], pipe: [500, 390, 220, 140], plive: [810, 390, 370, 140] };
+    }
+    var gh = push ? 200 : 250, ry = 40 + gh + 12, rh = push ? 262 : 448;
+    return { land: false, titles: [[10, 620], [10, 220], [290, 340]], titleY: 0, rowTitleY: ry,
+      git: [10, 40, 620, gh], agent: [10, ry + 40, 220, rh], live: [290, ry + 40, 340, rh],
+      laneT: [10, ry + 40 + rh + 14, 620, 34], pipe: [10, ry + 40 + rh + 54, 220, 186], plive: [290, ry + 40 + rh + 54, 340, 186] };
+  }
+
+  function html(el, h) { if (el._h !== h) { el.innerHTML = h; el._h = h; } return el; }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  /* An arrow: a line from (x1,y1) to (x2,y2), horizontal or vertical, with a head at the end. */
+  function wire(sim, key, x1, y1, x2, y2, on, dash, label, lx, ly, lw) {
+    var cls = on ? ' on' : '';
+    if (y1 === y2) {
+      var r = x2 > x1, a = Math.min(x1, x2), b = Math.max(x1, x2);
+      sim.place(sim.box(key, 'wire' + (dash ? ' dash' : '') + cls), r ? a : a + 12, y1 - 1.5, b - a - 12, 3);
+      sim.place(sim.box(key + '-h', 'ah ' + (r ? 'r' : 'l') + cls), r ? b - 13 : a, y1 - 8);
+    } else {
+      sim.place(sim.box(key, 'wire' + (dash ? ' dash v' : '') + cls), x1 - 1.5, y1, 3, y2 - y1 - 12);
+      sim.place(sim.box(key + '-h', 'ah d' + cls), x1 - 8, y2 - 13);
+    }
+    if (label) sim.place(sim.box(key + '-l', 'wl' + cls), lx, ly, lw, 20).textContent = label;
+  }
+
+  function drawGit(sim, s, R) {
+    var x = R[0], y = R[1], w = R[2], h = R[3], side = w > 500;
+    sim.place(sim.box('git', 'col'), x, y, w, h);
+    sim.place(sim.box('repo', 'repo'), x + 14, y + 10, side ? 360 : w - 28, 20).textContent =
+      'repo payments-deploy, ' + s.commits.length + ' commits';
+    var row1 = h < 400 && !side, mH = h >= 400 ? 120 : side ? h - 50 : 70;
+    var mx = side ? x + w - 226 : x + 12, my = side ? y + 38 : y + h - mH - 12, mw = side ? 214 : w - 24;
+    var cw = side ? w - 250 : w - 24, rowH = h >= 400 ? 48 : 42, pitch = rowH + (h >= 400 ? 10 : 7);
+    var room = (side ? h - 38 - 8 : h - 38 - mH - 20), K = Math.max(1, Math.floor((room + pitch - rowH) / pitch));
+    var shown = s.commits.slice(-K).reverse();
+    shown.forEach(function (c, i) {
+      var isHead = i === 0, tag = isHead ? '<span class="tg head">HEAD</span>' : c.revertedBy ? '<span class="tg">reverted</span>' : '';
+      html(sim.place(sim.box('cm-' + c.sha, 'cm' + (isHead ? '' : ' old') + (s.hot['c:' + c.sha] ? ' hot' : '')), x + 12, y + 38 + i * pitch, cw, rowH),
+        '<span class="sha">' + c.sha + '</span><span class="msg">' + esc(c.msg) + '</span>' + tag);
+    });
+    var want = head(s).spec;
+    sim.place(sim.box('man', 'man'), mx, my, mw, mH);
+    sim.place(sim.box('man-fn', 'fn'), mx + 12, my + 8, mw - 24, 18).textContent = 'payments.yaml at HEAD';
+    var ly = my + (mH >= 100 ? 34 : 30), lp = mH >= 100 ? 38 : 32;
+    FIELDS.forEach(function (f, i) {
+      var el = sim.box('man-' + f, 'ln' + (s.hot['m:' + f] ? ' hot' : ''));
+      if (row1) sim.place(el, mx + 6 + i * 166, ly, i ? mw - 178 : 160, 32);
+      else sim.place(el, mx + 6, ly + i * lp, mw - 12, 32);
+      el.textContent = f + ': ' + want[f];
+    });
+  }
+
+  function drawAgent(sim, s, R) {
+    var x = R[0], y = R[1], w = R[2], h = R[3], A = s.agent, st = STATUS[A.status];
+    var D = h >= 300 ? 130 : 100, total = D + 18 + 34 + 10 + 20 + 6 + 20, oy = y + Math.max(12, Math.round((h - total) / 2));
+    sim.place(sim.box('agent', 'col' + (st[0] === 'busy' ? ' on' : '')), x, y, w, h);
+    var ring = sim.place(sim.box('ring', 'ring ' + st[0] + (D < 120 ? ' sm' : '')), x + (w - D) / 2, oy, D, D);
+    html(ring, '<i></i><b>' + A.tick + '</b><span>loop</span>');
+    sim.place(sim.box('a-status', 'status ' + st[0]), x + 14, oy + D + 18, w - 28, 34).textContent = st[1];
+    sim.place(sim.box('a-at', 'sub mono'), x + 10, oy + D + 62, w - 20, 20).textContent = 'last sync ' + A.at;
+    sim.place(sim.box('a-every', 'sub'), x + 10, oy + D + 88, w - 20, 20).textContent = 'loops every 3 min';
+    return oy + D / 2;   // the ring's centre, where the wires meet the agent
+  }
+
+  /* The live system: its settings (amber when they differ from Git), its pods, its health. */
+  function drawLive(sim, s, R, key, L, small) {
+    var x = R[0], y = R[1], w = R[2], h = R[3], want = head(s).spec, bad = !!BROKEN[L.image];
+    sim.place(sim.box(key, 'col live'), x, y, w, h);
+    sim.place(sim.box(key + '-nm', 'nm' + (small ? ' sm' : '')), x + 16, y + (small ? 8 : 12), 200, 32).textContent = 'payments';
+    sim.place(sim.box(key + '-health', 'status ' + (bad ? 'bad' : 'read')), x + w - 126, y + (small ? 8 : 14), 110, 34)
+      .textContent = bad ? 'failing' : 'healthy';
+    var pod = small ? 22 : h >= 400 ? 46 : 40, gap = small ? 6 : 10, py;
+    if (small) {
+      // one row of settings: replicas and image side by side
+      FIELDS.forEach(function (f, i) {
+        var off = L[f] !== want[f];
+        sim.place(sim.box(key + '-v-' + f, 'val sm' + (off ? ' warn' : '')), x + 16 + i * 140, y + 50, i ? w - 172 : 130, 32)
+          .textContent = f + ' ' + L[f];
+      });
+      py = y + 100;
+    } else {
+      FIELDS.forEach(function (f, i) {
+        var ry = y + 62 + i * 48, off = L[f] !== want[f];
+        sim.place(sim.box(key + '-l-' + f, 'lbl2'), x + 16, ry, 100, 36).textContent = f;
+        if (off) sim.place(sim.box(key + '-n-' + f, 'note2'), x + 110, ry, w - 252, 36).textContent = L.hand[f] ? 'changed by hand' : 'differs from Git';
+        sim.place(sim.box(key + '-v-' + f, 'val' + (off ? ' warn' : '')), x + w - 136, ry + 2, 120, 34).textContent = L[f];
+      });
+      py = y + 172;
+    }
+    var n = Math.max(L.replicas, want.replicas), per = Math.floor((w - 32 + gap) / (pod + gap));
+    if (small && hasHand(L)) per = Math.floor((w - 32 - 140 + gap) / (pod + gap));
+    for (var i = 0; i < n; i++) {
+      var cls = i >= L.replicas ? 'miss' : i >= want.replicas ? 'extra' : bad ? 'bad' : '';
+      sim.place(sim.box(key + '-pod' + i, 'pod ' + cls), x + 16 + (i % per) * (pod + gap), py + Math.floor(i / per) * (pod + gap), pod, pod);
+    }
+    if (small && hasHand(L)) {
+      sim.place(sim.box(key + '-drift', 'note2'), x + w - 146, py - 7, 130, 36).textContent = 'changed by hand';
+    }
+  }
+
+  function drawPush(sim, s, G) {
+    var P = s.push, t = G.laneT;
+    html(sim.place(sim.box('lane-t', 'ctitle lane'), t[0] + 4, t[1], t[2] - 4, t[3]),
+      'Push CI<span>for contrast: the same app, deployed by a pipeline when it runs</span>');
+    if (G.land) sim.place(sim.box('lane-div', 'divider'), 20, 344, 1160, 2);
+    var R = G.pipe, x = R[0], y = R[1], w = R[2], h = R[3], run = P.status === 'running';
+    sim.place(sim.box('pipe', 'col' + (run ? ' on' : '')), x, y, w, h);
+    sim.place(sim.box('pipe-nm', 'nm sm'), x + 14, y + 8, w - 28, 28).textContent = 'Pipeline';
+    sim.place(sim.box('pipe-st', 'status ' + (run ? 'busy' : '')), x + 14, y + 42, w - 28, 34).textContent = run ? 'running' : 'idle, not watching';
+    sim.place(sim.box('pipe-on', 'sub'), x + 10, y + 84, w - 20, 20).textContent = 'runs on git push';
+    sim.place(sim.box('pipe-ran', 'sub mono'), x + 10, y + 108, w - 20, 20).textContent = 'last run ' + P.ran;
+    if (G.pgit) {
+      var g = G.pgit;
+      sim.place(sim.box('pgit', 'col'), g[0], g[1], g[2], g[3]);
+      sim.place(sim.box('pgit-nm', 'nm sm'), g[0] + 14, g[1] + 8, g[2] - 28, 28).textContent = 'Git';
+      sim.place(sim.box('pgit-s', 'sub left'), g[0] + 14, g[1] + 44, g[2] - 28, 20).textContent = 'the same repo and commits';
+      sim.place(sim.box('pgit-h', 'sub left mono'), g[0] + 14, g[1] + 70, g[2] - 28, 20).textContent = 'HEAD ' + head(s).sha;
+      var my = y + 59;
+      wire(sim, 'w-trig', g[0] + g[2] + 4, my, x - 4, my, s.wires.trig, false, 'triggers', g[0] + g[2], my - 28, x - g[0] - g[2]);
+    }
+    var L = G.plive, wy = y + 59;
+    wire(sim, 'w-deploy', x + w + 4, wy, L[0] - 4, wy, s.wires.deploy, false, 'deploys', x + w, wy - 28, L[0] - x - w);
+    drawLive(sim, s, L, 'plive', P.live, true);
+  }
+
+  Sim.create({
+    id: 'gitops-loop',
+    size: [1200, 540],
+    portrait: [640, 800],
+    autoDelay: 3200,
+    recap: {
+      remember: 'In GitOps, Git holds the desired state and an agent pulls it and keeps the live system matching it: a change is a commit, a rollback is a revert, and a change by hand is drift that gets set back.',
+      mistake: 'Fixing the live system by hand, for example scaling up during an incident, and not committing the fix. The agent sets it back on its next loop. Put the fix in Git, or pause automatic sync on purpose and tell the team.',
+      simplified: 'One app with two settings, and fictional commits. The 3-minute loop is illustrative (Argo CD polls Git about that often by default; a webhook often triggers it sooner). Setting hand edits back is usually a setting (in Argo CD: automated sync with self-heal). A real rollout often keeps old pods running when a new image fails its checks.',
+      lecture: 'Lecture 9'
+    },
+    state: fresh,
+
+    render: function (s, sim) {
+      var G = geometry(sim, !!s.push), W = s.wires;
+      [['Git', 'desired state'], ['Agent', 'the reconciler'], ['Live system', 'what runs']].forEach(function (t, i) {
+        var ty = G.land || i === 0 ? G.titleY : G.rowTitleY, sub = G.land || i === 0 ? '<span>' + t[1] + '</span>' : '';
+        html(sim.place(sim.box('t' + i, 'ctitle'), G.titles[i][0] + 4, ty, G.titles[i][1] - 4, 40), t[0] + sub);
+      });
+      drawGit(sim, s, G.git);
+      var cy = drawAgent(sim, s, G.agent);
+      var g = G.git, a = G.agent, l = G.live;
+      if (G.land) {
+        wire(sim, 'w-pull', g[0] + g[2] + 4, cy, a[0] - 4, cy, W.pull, false, 'pulls', g[0] + g[2], cy - 30, a[0] - g[0] - g[2]);
+      } else {
+        wire(sim, 'w-pull', a[0] + 170, g[1] + g[3] + 4, a[0] + 170, a[1] - 4, W.pull, false, 'pulls', a[0] + 180, g[1] + g[3] + 12, 60);
+      }
+      var ax = a[0] + a[2], gap = l[0] - ax;
+      wire(sim, 'w-apply', ax + 4, cy - 16, l[0] - 4, cy - 16, W.apply, false, 'applies', ax, cy - 44, gap);
+      wire(sim, 'w-read', l[0] - 4, cy + 16, ax + 4, cy + 16, W.read, true, 'reads', ax, cy + 24, gap);
+      drawLive(sim, s, l, 'live', s.live, false);
+      if (s.push) drawPush(sim, s, G);
+    },
+
+    intro: { caption: 'Git holds the desired state of payments: 3 replicas of image v1.4. An agent keeps the live system matching it.',
+      why: 'In GitOps, Git is the single source of truth for what should run. The agent runs in or near the target system, pulls the desired state from Git and compares it with what really runs, again and again. Changes usually go in as commits, not as commands against the live system.',
+      code: 'argocd app get payments' },
+    steps: [
+      { caption: 'You commit replicas: 4 and push. Nothing deploys it: Git changed, but the live system still runs 3 pods.',
+        why: 'A commit only changes the desired state. No pipeline pushes it to the system: the live system is now behind Git (the dashed pod is the one it lacks) until the agent looks. Whoever pushes needs access to the repository, not to the system.',
+        code: 'git commit -am "scale to 4 replicas" && git push',
+        run: function (s) { commit(s, { replicas: 4 }, 'scale to 4 replicas'); } },
+      { caption: 'On its next loop the agent pulls the commit, finds 3 pods where Git says 4, and adds one. In sync again.',
+        why: 'The agent pulls on its own schedule (or right after a webhook), compares Git with the live system and applies only the difference. Out of sync shows amber until it is fixed. What should run, who changed it and when, is now in the Git log.',
+        code: 'argocd app set payments --sync-policy automated',
+        run: function (s, sim) { s.hot = {}; return tick(s, sim); } },
+      { caption: 'Someone scales payments to 6 pods by hand during a load spike. Git still says 4: the system is out of sync.',
+        why: 'A change made straight on the live system bypasses Git: no review, no record in Git, no easy way back. For GitOps this is drift, whether it was a good idea or a mistake. The agent has not looked yet; it will on its next loop.',
+        code: 'kubectl scale deployment payments --replicas=6',
+        run: function (s) { handEdit(s, 'scale'); } },
+      { caption: 'Next loop: the agent finds 6 pods where Git says 4 and scales back to 4. The hand edit is undone.',
+        why: 'Setting drift back is what keeps Git the truth. If 6 pods were really needed, the fix is a commit, not a command. Many agents can also be set to only report drift instead of reverting it, so check what yours does.',
+        code: 'argocd app set payments --self-heal',
+        run: function (s, sim) { return tick(s, sim); } },
+      { caption: 'A commit with image v1.5 goes out. The agent syncs it as asked: the system matches Git, but v1.5 fails.',
+        why: 'In sync means the system matches Git, not that the change is good. The agent deploys a broken commit as faithfully as a good one, so reviews and checks before the merge still matter.',
+        code: 'git commit -am "image v1.5" && git push',
+        run: async function (s, sim) {
+          commit(s, { image: 'v1.5' }, 'image v1.5');
+          sim.render(); await sim.wait(1300); await tick(s, sim);
+        } },
+      { caption: 'Rollback is a Git revert: a new commit puts v1.4 back, and on its next loop the agent makes the system follow it.',
+        why: 'A revert adds a commit that undoes the bad one, so history keeps both: what broke, and who rolled it back when. Rolling back needs no access to the live system and no special tool, only the same Git workflow as any change.',
+        code: 'git revert HEAD && git push',
+        run: async function (s, sim) {
+          revert(s);
+          sim.render(); await sim.wait(1300); await tick(s, sim);
+        } },
+      { caption: 'Push CI for contrast. The same hand edit hits both: the agent sets its system back, the pushed one stays at 6.',
+        why: 'A push pipeline deploys when a commit starts it, then stops; between runs, usually nothing compares the system with Git. Scheduled runs often close much of that gap, which is why some teams treat continuous reconciliation as optional. Now try the buttons.',
+        code: 'kubectl apply -f payments.yaml   # the deploy step of a push pipeline',
+        buttons: ['commit', 'hand', 'revert'],
+        run: async function (s, sim) {
+          s.hot = {};
+          s.push = { live: { replicas: s.live.replicas, image: s.live.image, hand: {} }, status: 'idle', ran: head(s).sha };
+          sim.render(); await sim.wait(1600);
+          handEdit(s, 'scale');
+          sim.render(); await sim.wait(1400);
+          await tick(s, sim);
+        } }
+    ],
+    buttons: {
+      commit: { label: 'Commit', caption: 'You commit a change to payments.yaml and push it.',
+        why: 'Both sides deploy a commit: the pipeline because the push started it, the agent on its next loop. The difference shows between commits, when only the agent keeps comparing.',
+        code: '',
+        run: async function (s, sim) {
+          var c = nextChange(s), nc = commit(s, c.change, c.msg);
+          sim.say(null, 'git commit -am "' + c.msg + '" && git push');
+          sim.render(); await sim.wait(700);
+          var undid = await pipeline(s, sim, true);
+          await tick(s, sim, true);
+          sim.say(withResult(s, 'Commit ' + nc.sha + ': the pipeline deployed it at once' + (undid ? ', undoing the hand edit' : '') +
+            '; the agent on its next loop.'));
+        } },
+      hand: { label: 'Hand edit', caption: 'Someone changes both live systems by hand.',
+        why: 'The agent notices on its next loop and sets its system back to what Git says. The pushed system keeps the change until a pipeline runs again, and usually nothing reports it in between.',
+        code: '',
+        run: async function (s, sim) {
+          var h = handEdit(s, ['image', 'scale'][s.hands++ % 2]);
+          sim.say(h.what === 'scale' ? 'Someone scales both systems to ' + h.r + ' pods by hand.' :
+            'Someone sets image ' + h.img + ' on both systems by hand.', h.code);
+          sim.render(); await sim.wait(1300);
+          await tick(s, sim, true);
+          var P = s.push.live, kept = [];
+          if (P.hand.replicas) kept.push(P.replicas + ' pods');
+          if (P.hand.image) kept.push('image ' + P.image);
+          sim.say('The agent set its system back to ' + sysText(s.live) + '. The pushed one keeps ' + kept.join(' and ') +
+            ' until the next run.');
+        } },
+      revert: { label: 'Revert commit', caption: 'You revert the last commit and push.',
+        why: 'git revert adds a new commit that undoes the last one. Both sides follow it like any other commit, and the history keeps the reverted commit too. Reverting a revert brings the change back.',
+        code: 'git revert HEAD && git push',
+        run: async function (s, sim) {
+          var old = head(s), c = revert(s);
+          sim.render(); await sim.wait(700);
+          var undid = await pipeline(s, sim, true);
+          await tick(s, sim, true);
+          sim.say(withResult(s, 'Commit ' + c.sha + ' reverts ' + old.sha + '. Pipeline and agent follow it' +
+            (undid ? '; the run undid the hand edit.' : '.')));
+        } }
+    }
+  });
+})();
+</script>
+</body>
+</html>
