@@ -29,6 +29,9 @@
   font-size: 17px; white-space: nowrap; }
 .cell.doomed { border-color: var(--bad); background: var(--bad-bg); }
 .cell.doomed .nm { color: var(--bad); text-decoration: line-through; }
+.cell.mem { border-style: dashed; border-color: var(--info); }
+.cell.none.mem { color: var(--info); font-weight: 700; }
+.cell .sb.mem { color: var(--info); font-weight: 700; }
 .cell.hot { border-color: var(--accent); box-shadow: var(--ring); }
 .cell.compact { flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; padding: 0 10px; }
 .cell.compact .nm { font-size: 18px; line-height: 22px; }
@@ -89,38 +92,41 @@
   }
   function chips(k) { return '+' + k.create + ' ~' + k.update + ' -' + k.destroy; }
 
-  /* Plan: refresh the state from the cloud (only what the state lists), then compare the code with the state. */
+  /* Plan: read from the cloud what the state lists (in memory: s.plan.seen; the saved s.state is not touched),
+     then compare the code with that. Only apply saves it. */
   async function plan(s, sim, fast) {
-    var w = fast ? 520 : 850, drift = 0;
-    s.hot = {}; s.plan = { status: 'refresh', items: null }; s.active = ['state', 'cloud'];
+    var w = fast ? 520 : 850, drift = 0, seen = {};
+    s.hot = {}; s.plan = { status: 'refresh', items: null, seen: null }; s.active = ['state', 'cloud'];
     sim.render(); await sim.wait(w);
     Object.keys(s.state).forEach(function (n) {
       var c = s.cloud[n];
-      if (!c) { delete s.state[n]; s.hot['state:' + n] = true; drift++; }
-      else if (c.v !== s.state[n].v) { s.state[n].v = c.v; s.hot['state:' + n] = true; drift++; }
+      if (!c) drift++;
+      else { seen[n] = res(c.v); if (c.v !== s.state[n].v) drift++; }
     });
+    s.plan.seen = seen;
     sim.render(); await sim.wait(w);
     s.plan.status = 'compare'; s.active = ['code', 'state', 'plan'];
     sim.render(); await sim.wait(w * 0.7);
     var items = {};
     ORDER.forEach(function (n) {
-      var c = s.code[n], st = s.state[n];
+      var c = s.code[n], st = seen[n];
       if (c && !st) items[n] = { type: 'create', to: c.v };
       else if (!c && st) items[n] = { type: 'destroy' };
       else if (c && st) items[n] = c.v === st.v ? { type: 'same' } : { type: 'update', from: st.v, to: c.v };
       else if (s.cloud[n]) items[n] = { type: 'unmanaged' };
     });
-    s.plan = { status: counts(items).total ? 'ready' : 'none', items: items, drift: drift };
+    s.plan = { status: counts(items).total ? 'ready' : 'none', items: items, drift: drift, seen: seen };
     sim.render(); await sim.wait(w * 0.6);
     s.active = [];
   }
 
-  /* Apply: without a current plan, plan first; then change the cloud and record the result in the state. */
+  /* Apply: without a current plan, plan first; then change the cloud and save what was read plus the changes
+     as the new state. */
   async function apply(s, sim, fast) {
     var w = fast ? 520 : 850, replanned = false;
     if (!s.plan || (s.plan.status !== 'ready' && s.plan.status !== 'none')) { await plan(s, sim, true); replanned = true; }
-    var items = s.plan.items, k = counts(items);
-    if (!k.total) return { k: k, replanned: replanned };
+    var items = s.plan.items, k = counts(items), seen = s.plan.seen;
+    if (!k.total) { s.state = seen; s.plan.seen = null; return { k: k, replanned: replanned }; }
     var todo = ORDER.filter(function (n) { return items[n] && DONE[items[n].type]; });
     s.hot = {}; s.plan.status = 'applying'; s.active = ['cloud'];
     sim.render(); await sim.wait(w * 0.5);
@@ -131,9 +137,10 @@
     sim.render(); await sim.wait(w);
     s.active = ['state'];
     todo.forEach(function (n) {
-      if (items[n].type === 'destroy') delete s.state[n];
-      else { s.state[n] = res(s.code[n].v); s.hot['state:' + n] = true; }
+      if (items[n].type === 'destroy') delete seen[n];
+      else { seen[n] = res(s.code[n].v); s.hot['state:' + n] = true; }
     });
+    s.state = seen; s.plan.seen = null;
     sim.render(); await sim.wait(w);
     s.plan.status = 'applied'; s.active = [];
     return { k: k, replanned: replanned };
@@ -154,7 +161,7 @@
     if (by.destroy.length) parts.push('destroy ' + list(by.destroy));
     var t = 'Plan: ' + chips(k) + '. It would ' + (parts.length > 1 ? parts.slice(0, -1).join(', ') + ', and ' : '') +
       parts[parts.length - 1] + '.';
-    var note = s.plan.drift > 1 ? ' The refresh found changes made by hand.' : ' The refresh found a change made by hand.';
+    var note = s.plan.drift > 1 ? ' Reading the cloud found changes made by hand.' : ' Reading the cloud found a change made by hand.';
     return s.plan.drift && (t + note).length <= 120 ? t + note : t;
   }
   function applyText(r) {
@@ -183,7 +190,7 @@
     var gone = ['web-2', 'logs', 'db-1'].filter(function (n) { return cl[n]; })[0];
     if (what === 'delete' && gone) {
       delete cl[gone];
-      return 'Someone deletes ' + gone + ' in the console. The state still lists it until the next refresh.';
+      return 'Someone deletes ' + gone + ' in the console. The saved state still lists it; the next plan finds it gone.';
     }
     if (what === 'create') {
       if (cl['test-vm']) { delete cl['test-vm']; return 'Someone deletes test-vm in the console. The tool never knew it, so its state stays the same.'; }
@@ -210,9 +217,9 @@
     portrait: [640, 590],
     autoDelay: 3000,
     recap: {
-      remember: 'The tool compares the code with its state, refreshed from the cloud, and plans only the difference: <code>+</code> create, <code>~</code> change, <code>-</code> destroy.',
+      remember: 'The tool reads the cloud for what its state lists, compares that with the code and plans only the difference: <code>+</code> create, <code>~</code> change, <code>-</code> destroy.',
       mistake: 'Fixing things by hand in the console. The state does not record it, and the next apply usually sets the resource back to what the code says. Change the code instead, and read every <code>-</code> in a plan before you apply.',
-      simplified: 'Each resource has one setting here. A real plan refreshes the state only in memory and apply saves it; the drawing updates the state column during the plan to show the refresh. Real state also holds IDs and every attribute, and a team keeps it in a shared, locked place (see Shared state and locking).',
+      simplified: 'Each resource has one setting here. Real state also holds IDs and every attribute, and a team keeps it in a shared, locked place (see Shared state and locking).',
       lecture: 'Lecture 5'
     },
     state: fresh,
@@ -227,21 +234,25 @@
       });
 
       // one row per resource that exists anywhere (or was just destroyed by the last apply)
+      var seen = P && P.seen, view = { code: s.code, state: seen || s.state, cloud: s.cloud };
       var rows = ORDER.filter(function (n) { return s.code[n] || s.state[n] || s.cloud[n] || (items && items[n]); });
       rows.forEach(function (n, r) {
         var y = G.y0 + r * G.pitch, it = items && items[n];
         var doomed = it && it.type === 'destroy' && (P.status === 'ready' || P.status === 'applying');
         ['code', 'state', 'cloud'].forEach(function (cid, i) {
-          var x = G.xs[i] + 10, w = G.ws[i] - 20, o = s[cid][n];
+          var x = G.xs[i] + 10, w = G.ws[i] - 20, o = view[cid][n], saved = s.state[n];
+          // read by the plan, differs from the saved state: shown, but not saved until apply
+          var mem = cid === 'state' && seen && (o ? !saved || saved.v !== o.v : !!saved);
           if (!o) {
-            sim.place(sim.box('n-' + cid + '-' + n, 'cell none' + (G.compact ? ' compact' : '')), x, y, w, G.cellH)
-              .textContent = G.compact ? 'none' : 'not in ' + cid;
+            sim.place(sim.box('n-' + cid + '-' + n, 'cell none' + (mem ? ' mem' : '') + (G.compact ? ' compact' : '')), x, y, w, G.cellH)
+              .textContent = G.compact ? 'none' : mem ? 'gone, not saved' : 'not in ' + cid;
             return;
           }
           var cls = 'cell ' + cid + (G.compact ? ' compact' : '') + (doomed && cid !== 'code' ? ' doomed' : '') +
-            (s.hot[cid + ':' + n] ? ' hot' : '');
+            (mem ? ' mem' : '') + (s.hot[cid + ':' + n] ? ' hot' : '');
           var off = cid !== 'code' && s.code[n] && s.code[n].v !== o.v;   // differs from what the code wants
-          var sub = o.note ? '<div class="sb hand">' + o.note + '</div>' : '<div class="sb">' + KIND[n] + '</div>';
+          var sub = o.note ? '<div class="sb hand">' + o.note + '</div>' : mem ? '<div class="sb mem">refreshed, not saved</div>' :
+            '<div class="sb">' + KIND[n] + '</div>';
           sim.place(html(sim.box('c-' + cid + '-' + n, cls),
             '<div><div class="nm">' + n + '</div>' + sub + '</div><div class="val' + (off ? ' warn' : '') + '">' + o.v + '</div>'),
             x, y, w, G.cellH);
@@ -300,8 +311,8 @@
         run: function (s) {
           s.cloud['web-1'] = res('large', 'changed by hand'); s.plan = null; s.hot = { 'cloud:web-1': true };
         } },
-      { caption: 'Plan first refreshes the state from the cloud and finds large. The code says small, so the plan says ~1.',
-        why: 'Before comparing, the tool reads every resource in its state from the cloud, and that is how drift shows up. The code wins: the plan wants web-1 back at small. If large was the right size, change the code, not the console.',
+      { caption: 'Plan reads web-1 from the cloud and finds large. The code says small, so the plan says ~1.',
+        why: 'Before comparing, the tool reads from the cloud every resource its state lists, and that is how drift shows up. What it read stays in memory; only apply saves it. The code wins: the plan wants web-1 back at small. If large was the right size, change the code, not the console.',
         code: 'terraform plan',
         run: function (s, sim) { return plan(s, sim); } },
       { caption: 'Apply sets web-1 back to small: code, state and cloud agree. Now try the buttons yourself.',
@@ -316,11 +327,11 @@
         code: '',
         run: function (s, sim) { sim.say(editCode(s)); } },
       console: { label: 'Console change', caption: 'Someone changes the cloud by hand.',
-        why: 'A change by hand reaches the cloud only. The state keeps its old values until the next refresh. A resource made by hand is not in the state at all, so the tool neither plans for it nor deletes it.',
+        why: 'A change by hand reaches the cloud only. The saved state keeps its old values; the next plan reads the cloud and finds the difference. A resource made by hand is not in the state at all, so the tool neither plans for it nor deletes it.',
         code: '',
         run: function (s, sim) { sim.say(consoleChange(s)); } },
-      plan: { label: 'Plan', caption: 'The tool refreshes the state from the cloud and compares it with the code.',
-        why: 'Plan reads the cloud, compares it with the code and lists the difference. It changes nothing in the cloud, so it is safe to run as often as you like.',
+      plan: { label: 'Plan', caption: 'The tool reads the cloud for what the state lists and compares that with the code.',
+        why: 'Plan reads the cloud for what the state lists, compares that with the code and lists the difference. It saves nothing and changes nothing in the cloud, so it is safe to run as often as you like.',
         code: 'terraform plan',
         run: async function (s, sim) { await plan(s, sim, true); sim.say(planText(s)); } },
       apply: { label: 'Apply', caption: 'The tool carries out the plan and records the result in the state.',
