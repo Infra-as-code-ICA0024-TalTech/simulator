@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fixture · IaC concepts</title>
+<!-- Dev-only page for browser checks of the frame (not published). Open tests/fixture.html. -->
+<link rel="stylesheet" href="../assets/frame.css">
+<script src="../assets/sims.js"></script>
+<script src="../assets/frame.js"></script>
+<style>
+.srv { border: 3px solid var(--edge); border-radius: 14px; background: var(--surface); display: flex; align-items: center;
+  justify-content: center; font-size: 26px; font-weight: 700; color: var(--edge); }
+.srv.ok { border-color: var(--read); background: var(--read-bg); color: var(--read); }
+.srv.busy { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.srv.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+.cnt { font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+<script>
+(function () {
+  window.SIMS = window.SIMS || [];
+  SIMS.push({ id: 'fixture', title: 'Fixture', status: 'ready', idea: '', icon: '' });
+
+  Sim.create({ id: 'fixture',
+    size: [1200, 540],
+    recap: {
+      remember: 'Remember line of the fixture.',
+      mistake: 'Common mistake line of the fixture.',
+      simplified: 'Simplified line of the fixture, with <code>code</code>.',
+      lecture: 'Lecture 1'
+    },
+    state: function () { return { n: 0, phase: '', broken: false }; },
+    render: function (s, sim) {
+      for (var i = 0; i < 3; i++) {
+        var cls = 'srv' + (i < s.n ? ' ok' : '') + (i === s.n - 1 && s.phase === 'busy' ? ' busy' : '') + (s.broken && i === 0 ? ' bad' : '');
+        sim.place(sim.box('srv' + i, cls), 90 + i * 360, 170, 300, 200).textContent = 'server ' + (i + 1);
+      }
+      sim.place(sim.box('cnt', 'lbl cnt'), 90, 420).textContent = 'steps done: ' + s.n;
+    },
+    intro: { caption: 'Fixture intro: three steps and one button. This intro has no why text.', code: '', buttons: ['break'] },
+    steps: [
+      { caption: 'Step one: the first server is configured.', why: 'why one', code: 'ansible-playbook site.yml',
+        run: function (s) { s.n = 1; } },
+      { caption: 'Step two: the second server takes one second to converge.', why: 'why two', code: 'ansible-playbook site.yml --check',
+        run: async function (s, sim) { s.n = 2; s.phase = 'busy'; sim.render(); await sim.wait(1000); s.phase = ''; } },
+      { caption: 'Step three: all three servers are configured; this caption is long enough to wrap onto a second line.',
+        why: 'Long why: the frame must fit two caption lines, up to three lines of this text, the controls and the code line on a 1280x720 projector screen without any scrolling. This sentence is here only to make the text long enough to test that limit with a realistic amount of words in it. Plain words, no long dashes, and about three lines, at most.',
+        code: 'terraform plan -out=tfplan',
+        run: function (s) { s.n = 3; } }
+    ],
+    buttons: {
+      break: { label: 'Break server 1', caption: 'Someone breaks server 1 by hand.', why: 'why button', code: 'ssh web1 sudo rm /etc/app.conf',
+        run: function (s) { s.broken = !s.broken; } }
+    }
+  });
+})();
+</script>
+</body>
+</html>

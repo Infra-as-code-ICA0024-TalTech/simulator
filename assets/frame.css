@@ -1,0 +1,170 @@
+/*
+ * IaC concept simulator: shared look in the XA design system (light only). Fonts, colour tokens, the sim frame
+ * (top bar, stage, bottom bar with the caption, the "why" line and the controls), the recap popover, and a few
+ * classes sims may use on their own drawings. Mode (Lecture / Study) is data-mode on <html>, set by frame.js.
+ */
+@font-face { font-family: "PT Sans"; src: url(fonts/PTSans-Regular.woff2) format("woff2");
+  font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "PT Sans"; src: url(fonts/PTSans-Bold.woff2) format("woff2");
+  font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url(fonts/JetBrainsMono-Regular.woff2) format("woff2");
+  font-weight: 100 800; font-style: normal; font-display: swap; }   /* variable font, default instance 400 */
+
+:root {
+  /* XA palette */
+  --xa-rose: #d27079; --xa-navy: #3d496e; --xa-slate: #535c73; --xa-maroon: #800000; --xa-amber: #d97706;
+  --xa-green: #16a34a; --xa-sky: #0ea5e9; --xa-canvas: #f5f5f7; --xa-line: #e9e9ef; --xa-muted: #8991a8;
+  --xa-ink: #212121; --xa-rose-soft: #f7e6e8; --xa-slate-soft: #eceef3; --xa-green-soft: #e7f5ec;
+  --xa-amber-soft: #fdf0db; --xa-maroon-soft: #f6e6e6; --xa-sky-soft: #e3f4fc;
+  --font-sans: "PT Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r-sm: 6px; --r-md: 9px; --r-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(33, 33, 33, .06), 0 1px 1px rgba(33, 33, 33, .04);
+  --shadow: 0 6px 18px rgba(61, 73, 110, .12), 0 2px 5px rgba(33, 33, 33, .05);
+  --ring: 0 0 0 3px rgba(210, 112, 121, .28);
+
+  /* semantic tokens sims use (same names as in the other simulators) */
+  --bg: var(--xa-canvas);
+  --surface: #ffffff;
+  --surface-2: var(--xa-slate-soft);
+  --text: var(--xa-ink);
+  --muted: var(--xa-slate);
+  --line: var(--xa-line);
+  --line-strong: #cdd2dd;     /* XA secondary-button border: a line that still shows on a projector */
+  --accent: var(--xa-rose);   /* highlights, the primary (Step) button */
+  --accent-ink: #ffffff;      /* text on accent */
+  --accent-text: #a94552;     /* accent as text on the page */
+  --edge: var(--xa-navy);     /* outline of drawn blocks, headings */
+  --read: var(--xa-green);  --read-bg: var(--xa-green-soft);    /* in sync, success */
+  --bad: var(--xa-maroon);  --bad-bg: var(--xa-maroon-soft);    /* error, destroy */
+  --warn: #9a6a00;          --warn-bg: var(--xa-amber-soft);    /* changed, drift, pending */
+  --skip: var(--xa-muted);  --skip-bg: var(--xa-slate-soft);    /* not involved */
+  --info: #0879ad;          --info-bg: var(--xa-sky-soft);      /* read, info */
+  --m1: var(--xa-rose); --m2: var(--xa-navy); --m3: var(--xa-sky); --m4: var(--xa-amber);   /* categories */
+  --m2-text: var(--xa-navy);  /* --m2 as text on the page */
+  --t: 450ms;                 /* base animation time; sims' transitions use it */
+  color-scheme: light;
+}
+@media (prefers-reduced-motion: reduce) { :root { --t: 120ms; } }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-sans);
+  line-height: 1.3; -webkit-font-smoothing: antialiased; -webkit-text-size-adjust: 100%;
+}
+code, .mono { font-family: var(--font-mono); }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-sm); }
+
+/* ---------- top bar: white XA header ---------- */
+.topbar {
+  flex: none; display: flex; align-items: center; gap: 14px; padding: 0 20px; min-height: clamp(56px, 2.5vw + 32px, 80px);
+  background: #ffffff; color: var(--text); border-bottom: 1px solid var(--line); box-shadow: var(--shadow-sm);
+}
+.tb-home { display: flex; align-items: center; flex: none; }
+.tb-home img { height: 26px; width: auto; display: block; }
+.tb-title { margin: 0; padding-left: 14px; border-left: 1px solid var(--line); color: var(--edge);
+  font-size: clamp(19px, 1.1vw + 7px, 30px); font-weight: 700; line-height: 1.2;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.tb-step { font-family: var(--font-mono); font-size: clamp(13px, .35vw + 9px, 19px); color: var(--muted);
+  border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 11px; white-space: nowrap;
+  font-variant-numeric: tabular-nums; }
+.tb-spacer { flex: 1; }
+.topbar a.tb-next { color: var(--edge); text-decoration: none; white-space: nowrap; font-weight: 700;
+  font-size: clamp(15px, .4vw + 10px, 22px); }
+.topbar a.tb-next:hover { color: var(--accent); }
+.tb-icon { background: #ffffff; border: 1px solid var(--line-strong); color: var(--edge); border-radius: var(--r-md);
+  padding: 3px 10px; font-size: clamp(16px, .45vw + 10px, 24px); line-height: 1.2; white-space: nowrap; }
+.tb-icon:hover, .tb-icon[aria-expanded="true"] { border-color: var(--edge); }
+.tb-mode { display: inline-flex; padding: 3px; gap: 2px; background: #ffffff; border: 1px solid var(--line-strong);
+  border-radius: 999px; font-size: clamp(14px, .35vw + 10px, 20px); font-weight: 700; white-space: nowrap; }
+.tb-mode span { padding: 3px 12px; border-radius: 999px; color: var(--muted); line-height: 1.2; }
+.tb-mode:hover { border-color: var(--edge); }
+[data-mode="lecture"] .tb-mode [data-m="lecture"], [data-mode="study"] .tb-mode [data-m="study"] {
+  background: var(--edge); color: #ffffff; }
+
+/* ---------- sim page ---------- */
+body.sim { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+.stage { flex: 1 1 auto; position: relative; min-height: 0; overflow: hidden; }
+.canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; font-size: 24px; }
+.bottombar { flex: none; padding: 10px 24px 12px; background: var(--surface); border-top: 1px solid var(--line); }
+.capline { display: flex; align-items: center; gap: 14px; margin: 0 0 8px; }
+.caption {
+  flex: 0 1 auto; min-width: 0; margin: 0; font-size: clamp(20px, 1.25vw + 12px, 40px); font-weight: 700; line-height: 1.22;
+  color: var(--text); min-height: 2.44em; display: flex; align-items: center; transition: opacity 160ms;
+}
+.tb-why { flex: none; background: #ffffff; color: var(--info); border: 1px solid var(--line-strong); border-radius: 999px;
+  padding: .3em .9em; font-size: clamp(14px, .4vw + 9px, 20px); font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.tb-why:hover, .tb-why[aria-expanded="true"] { border-color: var(--info); background: var(--info-bg); }
+.tb-why[hidden], [data-mode="study"] .tb-why { display: none; }
+.whyline {
+  margin: 0 0 8px; padding: 5px 12px; background: var(--info-bg); border-left: 4px solid var(--xa-sky);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0; color: var(--text); font-size: clamp(15px, .5vw + 10px, 26px);
+  line-height: 1.32; transition: opacity 160ms;
+}
+.whyline[hidden] { display: none; }
+.caption.swap, .whyline.swap { opacity: .15; }
+.controls { display: flex; align-items: center; justify-content: space-between; gap: 10px 18px; flex-wrap: wrap; }
+.codeline { margin-top: 8px; min-width: 0; font-size: clamp(14px, .45vw + 9px, 20px); color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.codeline b { font-weight: 700; }
+.codeline code { color: var(--edge); font-size: .94em; }
+.codeline.empty { visibility: hidden; }
+.actions, .trainer { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* buttons: XA .btn-dark (free buttons), .btn-primary (Step), .btn-secondary (Reset, Auto) */
+.btn {
+  font-family: var(--font-sans); font-size: clamp(18px, .6vw + 11px, 26px); font-weight: 700; padding: .4em .9em;
+  border-radius: var(--r-md); background: var(--edge); color: #ffffff; border: 1px solid var(--edge); line-height: 1.1;
+  white-space: nowrap; box-shadow: var(--shadow-sm); transition: transform 80ms, opacity 150ms, background-color 150ms, border-color 150ms;
+}
+.btn:hover { background: #323c5e; }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { box-shadow: var(--ring); border-radius: var(--r-md); }
+.btn.step { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-size: clamp(15px, .4vw + 10px, 21px); }
+.btn.step:hover { background: #c15f69; }
+.btn.ghost { background: #ffffff; color: var(--edge); border-color: var(--line-strong); box-shadow: none;
+  font-size: clamp(15px, .4vw + 10px, 21px); }
+.btn.ghost:hover { border-color: var(--edge); }
+.btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-text); }
+.btn:disabled, [data-busy] .actions .btn { opacity: .4; cursor: default; }
+
+/* recap popover (the top-bar (i)) */
+.note {
+  position: fixed; top: clamp(62px, 2.5vw + 38px, 86px); right: 16px; z-index: 10; max-width: min(580px, calc(100vw - 32px));
+  max-height: calc(100vh - 100px); overflow: auto; background: var(--surface); color: var(--text);
+  border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: var(--r-lg);
+  padding: 14px 20px 16px; font-size: 18px; line-height: 1.4; box-shadow: var(--shadow);
+}
+.note h2 { margin: 0 0 6px; color: var(--edge); font-size: 20px; font-weight: 700; }
+.note h3 { margin: 12px 0 2px; color: var(--muted); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.note h3.remember { color: var(--accent-text); }
+.note p { margin: 0; }
+.note code { font-size: .88em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; color: var(--edge); }
+.note .close { float: right; margin: -6px -10px 0 10px; background: none; border: 0; font-size: 24px; color: var(--muted); }
+
+/* Narrow screens: the page may scroll; the stage gets its height from the drawing (set by frame.js). */
+@media (max-width: 699px) {
+  body.sim { height: auto; min-height: 100dvh; overflow: visible; }
+  .stage { flex: none; }
+  .topbar { flex-wrap: wrap; gap: 8px 10px; padding: 8px 12px; }
+  .tb-title { flex: 1 1 0; }
+  .tb-spacer { display: none; }
+  .tb-next span { display: none; }
+  .bottombar { padding: 10px 14px 16px; }
+  .caption { min-height: 0; }
+  .codeline { white-space: normal; }
+}
+
+/* ---------- drawing helpers for sims (keyed elements made by sim.box) ---------- */
+.canvas .k {
+  position: absolute;
+  transition: left var(--t), top var(--t), width var(--t), height var(--t), opacity var(--t),
+              transform var(--t), background-color var(--t), border-color var(--t), color var(--t), box-shadow var(--t);
+}
+.canvas .k.is-new { opacity: 0; transform: translateY(-40px); }
+.canvas .k.is-gone { opacity: 0; transform: scale(.85); pointer-events: none; }
+.instant .canvas .k, .instant .canvas .k * { transition: none !important; animation: none !important; }
+.lbl { color: var(--muted); font-size: 22px; font-weight: 700; white-space: nowrap; }
+.big { font-size: 56px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: var(--edge); }
