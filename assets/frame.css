@@ -113,6 +113,10 @@ body.sim { display: flex; flex-direction: column; height: 100vh; height: 100dvh;
 .codeline b { font-weight: 700; }
 .codeline code { color: var(--edge); font-size: .94em; }
 .codeline.empty { visibility: hidden; }
+.bottomline { display: flex; align-items: baseline; gap: 16px; }
+.bottomline .codeline { flex: 1 1 auto; }
+.copynote { flex: none; margin-top: 8px; font-size: 12px; color: var(--muted); text-decoration: none; white-space: nowrap; opacity: .8; }
+.copynote:hover { color: var(--accent); opacity: 1; }
 .actions, .trainer { display: flex; gap: 10px; flex-wrap: wrap; }
 
 /* buttons: XA .btn-dark (free buttons), .btn-primary (Step), .btn-secondary (Reset, Auto) */
@@ -159,6 +163,7 @@ body.sim { display: flex; flex-direction: column; height: 100vh; height: 100dvh;
   .bottombar { padding: 10px 14px 16px; }
   .caption { min-height: 0; }
   .codeline { white-space: normal; }
+  .bottomline { flex-wrap: wrap; gap: 0 12px; }
 }
 
 /* ---------- drawing helpers for sims (keyed elements made by sim.box) ---------- */

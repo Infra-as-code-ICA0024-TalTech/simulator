@@ -129,7 +129,9 @@
             '<button class="btn step" data-t="step" title="Next step (→ or Space)">Step ▶</button>' +
           '</div>' +
         '</div>' +
-        '<div class="codeline empty"><b>In code:</b> <code></code></div>' +
+        '<div class="bottomline"><div class="codeline empty"><b>In code:</b> <code></code></div>' +
+        '<a class="copynote" href="https://extremeautomation.io" rel="noopener" target="_blank">\u00a9 2011-' +
+          new Date().getFullYear() + ' Andrey Adamovich \u00b7 extremeautomation.io</a></div>' +
       '</footer>' +
       (recap ? '<div class="note" role="dialog" aria-label="Recap" hidden><button class="close" title="Close (Esc)">×</button>' +
         '<h2>Recap</h2>' + recapHtml(recap) + copyrightHtml() + '</div>' : ''));
