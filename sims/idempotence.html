@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Idempotence · IaC concepts</title>
+<link rel="stylesheet" href="../assets/frame.css">
+<script src="../assets/sims.js"></script>
+<script src="../assets/frame.js"></script>
+<style>
+.ltitle { font-size: 30px; font-weight: 700; color: var(--edge); white-space: nowrap; line-height: 40px; }
+.ltitle span { font-size: 20px; font-weight: 400; color: var(--muted); margin-left: 10px; }
+.runs { font-family: var(--font-mono); font-size: 18px; line-height: 30px; text-align: center; color: var(--muted);
+  background: var(--surface); border: 2px solid var(--line-strong); border-radius: 999px; white-space: nowrap; }
+.runs.on { border-color: var(--accent); color: var(--accent-text); box-shadow: var(--ring); }
+.codecard { border: 2px solid var(--line-strong); border-radius: 14px; background: var(--surface); }
+.fname { font-family: var(--font-mono); font-size: 15px; color: var(--muted); white-space: nowrap; }
+.ci { border: 2px solid var(--line); border-radius: 9px; background: var(--surface-2); color: var(--edge);
+  font-family: var(--font-mono); font-size: 18px; line-height: 23px; white-space: pre; padding: 0 12px;
+  display: flex; align-items: center; overflow: hidden; }
+.ci.hot { border-color: var(--accent); background: var(--surface); box-shadow: var(--ring); }
+.tag { font-size: 17px; font-weight: 700; line-height: 30px; text-align: center; border-radius: 999px; white-space: nowrap; }
+.tag.warn { background: var(--warn-bg); color: var(--warn); }
+.tag.bad { background: var(--bad-bg); color: var(--bad); }
+.tag.read { background: var(--read-bg); color: var(--read); }
+.out { font-family: var(--font-mono); font-size: 17px; padding: 0 14px; display: flex; align-items: center; gap: 14px;
+  border: 2px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--muted); white-space: nowrap;
+  overflow: hidden; }
+.out i { font-style: normal; font-family: var(--font-sans); font-weight: 700; font-size: 15px; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--muted); }
+.out .x { margin-left: auto; }
+.out.bad { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+.out.warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.out.read { border-color: var(--read); background: var(--read-bg); color: var(--read); }
+.server { border: 3px solid var(--edge); border-radius: 14px; background: var(--surface); }
+.sname { font-size: 26px; font-weight: 700; color: var(--edge); white-space: nowrap; line-height: 36px; }
+.slbl { font-size: 18px; font-weight: 700; color: var(--muted); white-space: nowrap; line-height: 36px; text-align: right; }
+.chip { font-family: var(--font-mono); font-size: 18px; display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--line-strong); border-radius: 9px; background: var(--surface-2); color: var(--text); }
+.chip.new { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.chip.err { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+.chip.ok { border-color: var(--read); background: var(--read-bg); color: var(--read); }
+.file { border: 2px solid var(--line); border-radius: 9px; background: var(--surface); }
+.hl { font-family: var(--font-mono); font-size: 19px; display: flex; align-items: center; padding: 0 12px;
+  border-radius: 6px; background: var(--surface-2); color: var(--text); white-space: nowrap; overflow: hidden; }
+.hl b { margin-left: auto; font-family: var(--font-sans); font-size: 16px; font-weight: 700; }
+.hl.new { background: var(--warn-bg); color: var(--warn); }
+.hl.ok { background: var(--read-bg); color: var(--read); }
+.hl.dup { background: var(--bad-bg); color: var(--bad); }
+.hl.just { box-shadow: 0 0 0 3px var(--bad); }
+.hl.new.just { box-shadow: 0 0 0 3px var(--warn); }
+.canvas .k.hl.is-new { transform: translateX(-40px); }
+.divider { background: var(--line); }
+</style>
+</head>
+<body>
+<script>
+(function () {
+  var LINE = '10.0.0.5 db-1';
+  var CODE = {
+    sc: { title: 'Shell script', sub: 'steps to do', file: 'setup.sh', server: 'web-1',
+      items: [['useradd deploy'], ['echo \'' + LINE + '\' >> /etc/hosts']] },
+    guarded: [['id deploy || useradd deploy'], ['grep -q db-1 /etc/hosts ||', '  echo \'' + LINE + '\' >> /etc/hosts']],
+    tk: { title: 'Declarative task', sub: 'what should be true', file: 'site.yml', server: 'web-2',
+      items: [['user: name=deploy state=present'], ['lineinfile: path=/etc/hosts', '  line=\'' + LINE + '\'']] }
+  };
+
+  function server() { return { runs: 0, users: ['root'], hosts: ['127.0.0.1 localhost'], hot: -1, tags: [null, null], fx: {}, out: null }; }
+  function fresh() { return { sc: server(), tk: server(), guarded: false }; }
+  function copies(L) { return L.hosts.filter(function (h) { return h === LINE; }).length; }
+  function start(L) { L.runs++; L.tags = [null, null]; L.fx = {}; L.out = null; }
+
+  /* The script runs each command; with checks (guarded) it first looks at the server. */
+  async function runScript(s, sim, fast) {
+    var L = s.sc, w = fast ? 380 : 650, err = false;
+    start(L);
+    L.hot = 0; sim.render(); await sim.wait(w);
+    if (L.users.indexOf('deploy') < 0) { L.users.push('deploy'); L.tags[0] = ['warn', 'created']; L.fx.user = 'new'; }
+    else if (s.guarded) { L.tags[0] = ['read', '✓ ok']; L.fx.user = 'ok'; }
+    else { L.tags[0] = ['bad', '✕ error']; L.fx.user = 'err'; err = true; }
+    sim.render(); await sim.wait(w);
+    L.hot = 1; sim.render(); await sim.wait(w);
+    var n = copies(L);
+    if (s.guarded && n) { L.tags[1] = ['read', '✓ ok']; L.fx.line = 'ok'; }
+    else { L.hosts.push(LINE); L.tags[1] = n ? ['bad', '+1 copy'] : ['warn', 'added']; L.fx.line = n ? 'dup' : 'new'; }
+    sim.render(); await sim.wait(w);
+    L.hot = -1;
+    L.out = err ? ['bad', 'useradd: user \'deploy\' already exists', 'exit 0'] : ['', '', 'exit 0'];
+  }
+
+  /* The task checks first, changes only what differs, and reports how much it changed. */
+  async function runTask(s, sim, fast) {
+    var L = s.tk, w = fast ? 380 : 650, changed = 0;
+    start(L);
+    L.hot = 0; sim.render(); await sim.wait(w);
+    if (L.users.indexOf('deploy') < 0) { L.users.push('deploy'); L.tags[0] = ['warn', 'changed']; L.fx.user = 'new'; changed++; }
+    else { L.tags[0] = ['read', '✓ ok']; L.fx.user = 'ok'; }
+    sim.render(); await sim.wait(w);
+    L.hot = 1; sim.render(); await sim.wait(w);
+    if (!copies(L)) { L.hosts.push(LINE); L.tags[1] = ['warn', 'changed']; L.fx.line = 'new'; changed++; }
+    else { L.tags[1] = ['read', '✓ ok']; L.fx.line = 'ok'; }
+    sim.render(); await sim.wait(w);
+    L.hot = -1;
+    L.out = [changed ? 'warn' : 'read', 'ok=2 changed=' + changed, 'failed=0'];
+  }
+
+  function geometry(sim) {
+    if (!sim.portrait) return { lanes: [[20, 0, 564], [616, 0, 564]], srvH: 290, rows: 4, pitch: 46, rowH: 38 };
+    return { lanes: [[20, 0, 600], [20, 452, 600]], srvH: 194, rows: 3, pitch: 32, rowH: 28 };
+  }
+
+  function drawLane(sim, k, L, def, items, g, G) {
+    var rows = G.rows, srvH = G.srvH;
+    var x = g[0], y = g[1], w = g[2];
+    var t = sim.box(k + '-title', 'ltitle');
+    sim.place(t, x, y + 2, w - 150, 40);
+    t.innerHTML = '<b></b><span></span>';
+    t.firstChild.textContent = def.title; t.lastChild.textContent = def.sub;
+    sim.place(sim.box(k + '-runs', 'runs' + (L.hot >= 0 ? ' on' : '')), x + w - 140, y + 7, 140, 34)
+      .textContent = L.runs ? 'run ' + L.runs : 'not run yet';
+
+    // the code: one row per command or task, with what it did on the last run
+    var cy = y + 48;
+    sim.place(sim.box(k + '-card', 'codecard'), x, cy, w, 148);
+    sim.place(sim.box(k + '-file', 'fname'), x + 16, cy + 7, 300, 20).textContent = def.file;
+    [[cy + 32, 44], [cy + 82, 56]].forEach(function (r, i) {
+      sim.place(sim.box(k + '-ci' + i, 'ci' + (L.hot === i ? ' hot' : '')), x + 12, r[0], w - 24, r[1])
+        .textContent = items[i].join('\n');
+      var tag = L.tags[i];
+      if (tag) sim.place(sim.box(k + '-tag' + i, 'tag ' + tag[0]), x + w - 128, r[0] + (r[1] - 30) / 2, 104, 30).textContent = tag[1];
+    });
+
+    // what the run printed
+    var o = L.out, ob = sim.box(k + '-out', 'out ' + (o ? o[0] : ''));
+    sim.place(ob, x, y + 204, w, 38);
+    ob.innerHTML = '<i>output</i><span></span><span class="x"></span>';
+    ob.children[1].textContent = o ? o[1] : '';
+    ob.children[2].textContent = o ? o[2] : '';
+
+    // the server: its users and its /etc/hosts
+    var sy = y + 250;
+    sim.place(sim.box(k + '-srv', 'server'), x, sy, w, srvH);
+    sim.place(sim.box(k + '-sname', 'sname'), x + 18, sy + 10, 120, 36).textContent = def.server;
+    var ux = x + w - 18 - L.users.length * 110 + 10;
+    sim.place(sim.box(k + '-ulbl', 'slbl'), ux - 90, sy + 12, 80, 36).textContent = 'users';
+    L.users.forEach(function (u, i) {
+      var cls = 'chip' + (u === 'deploy' && L.fx.user ? ' ' + L.fx.user : '');
+      sim.place(sim.box(k + '-u-' + u, cls), ux + i * 110, sy + 12, 100, 36).textContent = u;
+    });
+    var fy = sy + 56, fh = srvH - 56 - 12;
+    sim.place(sim.box(k + '-file2', 'file'), x + 16, fy, w - 32, fh);
+    sim.place(sim.box(k + '-flbl', 'fname'), x + 30, fy + 6, 200, 20).textContent = '/etc/hosts';
+    var lines = L.hosts, n = 0, shown = lines.length > rows ? rows - 1 : lines.length;
+    for (var i = 0; i < shown; i++) {
+      var copy = lines[i] === LINE ? ++n : 0, last = i === lines.length - 1, cls = 'hl';
+      if (copy > 1) cls += ' dup';
+      else if (copy === 1 && L.fx.line === 'ok') cls += ' ok';
+      else if (copy === 1 && last && L.fx.line === 'new') cls += ' new';
+      if (last && (L.fx.line === 'new' || L.fx.line === 'dup')) cls += ' just';
+      var el = sim.place(sim.box(k + '-h' + i, cls), x + 26, fy + 30 + i * G.pitch, w - 52, G.rowH);
+      el.innerHTML = '<span></span>' + (copy > 1 ? '<b>copy ' + copy + '</b>' : '');
+      el.firstChild.textContent = lines[i];
+    }
+    if (lines.length > rows) {
+      sim.place(sim.box(k + '-hmore', 'hl dup' + (L.fx.line === 'dup' ? ' just' : '')), x + 26, fy + 30 + shown * G.pitch, w - 52, G.rowH)
+        .textContent = '+ ' + (lines.length - shown) + ' more copies of ' + LINE;
+    }
+  }
+
+  function scriptSay(s, sim) {
+    var L = s.sc, n = copies(L);
+    if (s.guarded) sim.say(L.tags[0][0] === 'read' && L.tags[1][0] === 'read'
+      ? 'Run ' + L.runs + ' of the checked script: both checks pass, so nothing runs and nothing is added.'
+      : 'Run ' + L.runs + ' of the checked script: it creates what is missing and skips the rest.');
+    else if (n === 1) sim.say('Run ' + L.runs + ' of the script: useradd creates the user, echo appends the line.');
+    else sim.say('Run ' + L.runs + ' of the script: useradd fails again, and /etc/hosts now has ' + n + ' copies of the line.');
+  }
+  function taskSay(s, sim) {
+    var L = s.tk, c = L.out[1].slice(-1);
+    sim.say('Run ' + L.runs + ' of the task: changed=' + c + (c === '0' ? '. Nothing was different, so nothing was touched.' : '. It fixed what was missing.'));
+  }
+
+  Sim.create({
+    id: 'idempotence',
+    size: [1200, 540],
+    portrait: [640, 900],
+    autoDelay: 2800,
+    recap: {
+      remember: 'Idempotent code can run any number of times: the first run makes the change, every later run finds nothing to do and changes nothing.',
+      mistake: 'Treating a script that worked once as done. The next run (a fix, a new server, a run that stopped halfway) then fails or adds duplicates: <code>useradd</code> and <code>echo &gt;&gt;</code> are not idempotent on their own.',
+      simplified: 'Two identical fresh servers stand in for one, so both approaches start clean. Real tasks check more (uid, groups, file mode), and tool output is shortened. A script can be idempotent too, if you write every check yourself, as the last step shows.',
+      lecture: 'Lecture 1'
+    },
+    state: fresh,
+
+    render: function (s, sim) {
+      var G = geometry(sim);
+      drawLane(sim, 'sc', s.sc, CODE.sc, s.guarded ? CODE.guarded : CODE.sc.items, G.lanes[0], G);
+      drawLane(sim, 'tk', s.tk, CODE.tk, CODE.tk.items, G.lanes[1], G);
+      if (sim.portrait) sim.place(sim.box('div', 'divider'), 20, 447, 600, 2);
+      else sim.place(sim.box('div', 'divider'), 599, 10, 2, 520);
+    },
+
+    intro: { caption: 'Same goal on two identical fresh servers: a user deploy and one line in /etc/hosts. Script left, task right.',
+      why: 'Both describe the same goal. The difference shows only when you run them again, and in real life you always do: after a fix, on a new server, on a schedule, or after a run that stopped halfway.',
+      code: '' },
+    steps: [
+      { caption: 'Run 1 of the script on web-1: useradd creates the user, echo appends the line. It looks right.',
+        why: 'On a fresh server a script works fine, which is why scripts feel good enough. It does not look at the server first: it just runs each command in order, and prints nothing about what it changed.',
+        code: 'sh setup.sh',
+        run: function (s, sim) { return runScript(s, sim); } },
+      { caption: 'Run 1 of the task on web-2: the tool checks each item, finds both missing and fixes them: changed=2.',
+        why: 'A declarative task names an end state, not a command. The tool first looks at the server, then changes only what differs, and reports what it changed. On a fresh server that is everything.',
+        code: 'ansible-playbook site.yml',
+        run: function (s, sim) { return runTask(s, sim); } },
+      { caption: 'Run 2 of the script: useradd fails, the user already exists. echo appends the same line a second time.',
+        why: 'The script runs every command again. useradd fails because deploy exists; echo appends a second copy. The script still exits 0, because only its last command counts, so whoever ran it sees success.',
+        code: 'sh setup.sh',
+        run: function (s, sim) { return runScript(s, sim); } },
+      { caption: 'Run 2 of the task: both items are already as described, so nothing is touched: changed=0.',
+        why: 'The tool checked both items, found them already true and changed nothing. changed=0 on a re-run is the everyday proof of idempotence; a re-run that still reports changes usually means a task is not idempotent.',
+        code: 'ansible-playbook site.yml   # second run: changed=0',
+        run: function (s, sim) { return runTask(s, sim); } },
+      { caption: 'Run 3 of both: the script fails again and /etc/hosts has three copies. The task stays at changed=0.',
+        why: 'Idempotent means: run once or run ten times, the result is the same. The script is not: every run adds one more line and one more error. That makes a re-run after a failure risky, exactly when it should be safe.',
+        code: 'ansible-playbook site.yml   # run 3: changed=0',
+        buttons: ['script', 'task', 'reset'],
+        run: function (s, sim) { return Promise.all([runScript(s, sim, true), runTask(s, sim, true)]); } },
+      { caption: 'With checks the script is idempotent too: the next run adds nothing. The old copies stay, though.',
+        why: 'Idempotence is a property of the code, not of the tool. Declarative tools build the check into every task; in a script you write each check yourself, and it is easy to miss one. Checks stop new copies but do not clean up old ones.',
+        code: 'grep -q db-1 /etc/hosts || echo \'10.0.0.5 db-1\' >> /etc/hosts',
+        run: async function (s, sim) {
+          s.guarded = true; sim.render(); await sim.wait(900); await runScript(s, sim);
+          // after the free buttons (Reset server, more runs) the story's caption may not fit what happened
+          if (s.sc.tags[0][0] !== 'read' || s.sc.tags[1][0] !== 'read' || copies(s.sc) < 2) scriptSay(s, sim);
+        } }
+    ],
+    buttons: {
+      script: { label: 'Run script', caption: 'The script runs once more on web-1, on whatever is there now.',
+        why: 'Each press is one more run of the same code on the same server. Watch whether the output and /etc/hosts change: an idempotent run leaves both as they were.',
+        code: 'sh setup.sh',
+        run: async function (s, sim) { await runScript(s, sim, true); scriptSay(s, sim); } },
+      task: { label: 'Run task', caption: 'The task runs once more on web-2, on whatever is there now.',
+        why: 'However often it runs, the task should report changed=0 after the first run. That is what makes it safe to run on a schedule, on many servers at once, or again after a failure.',
+        code: 'ansible-playbook site.yml',
+        run: async function (s, sim) { await runTask(s, sim, true); taskSay(s, sim); } },
+      reset: { label: 'Reset server', caption: 'Both servers are fresh again: no deploy user, no hosts line. The code stays as it is.',
+        why: 'A fresh server replays the first run: both approaches change things on run 1. The difference only shows from run 2 on, which is why testing a script once on a clean machine proves little.',
+        code: '',
+        run: function (s) { s.sc = server(); s.tk = server(); } }
+    }
+  });
+})();
+</script>
+</body>
+</html>

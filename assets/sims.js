@@ -24,7 +24,7 @@ window.SIM_GROUPS = [
   { id: 'workflows', title: 'Workflows', idea: 'Git as the way infrastructure changes hands.' }
 ];
 window.SIMS = [
-  { id: 'idempotence', group: 'concepts', title: 'Idempotence', lecture: 1, status: 'coming',
+  { id: 'idempotence', group: 'concepts', title: 'Idempotence', lecture: 1, status: 'ready',
     idea: 'Running the same code twice leaves the system as it is.',
     icon: '<rect class="m" x="4" y="8" width="24" height="24" rx="5"/><rect class="r" x="36" y="8" width="24" height="24" rx="5"/><path class="s" d="M30 20h4M32 17l3 3-3 3" fill="none" stroke-width="2"/>' },
   { id: 'desired-state', group: 'concepts', title: 'Desired vs actual state', lecture: 1, status: 'coming',
