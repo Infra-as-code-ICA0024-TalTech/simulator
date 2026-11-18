@@ -188,11 +188,16 @@
 
   function hasHand(L) { return FIELDS.some(function (f) { return L.hand[f]; }); }
   function sysText(L) { return L.replicas + ' pods of ' + L.image + (BROKEN[L.image] ? ', which fails' : ''); }
-  /* A caption that names the result when it fits in about 120 characters; a failing image is always named. */
+  /* Runtime captions: the first candidate of at most 120 characters (the caption limit), else the last one. */
+  function fit(list) {
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].length <= 120) return list[i];
+    return list[list.length - 1];
+  }
+  /* A caption that names the result when it fits; a failing image is always named. */
   function withResult(s, base) {
-    var full = base + ' Both run ' + sysText(s.live) + '.';
-    if (full.length <= 120) return full;
-    return BROKEN[s.live.image] ? base + ' ' + s.live.image + ' still fails.' : base;
+    var bad = BROKEN[s.live.image];
+    return fit([base + ' Both run ' + sysText(s.live) + '.', bad ? base + ' ' + s.live.image + ' still fails.' : base,
+      bad ? base + ' It still fails.' : base]);
   }
 
   function geometry(sim, push) {
@@ -424,15 +429,19 @@
         code: '',
         run: async function (s, sim) {
           var h = handEdit(s, ['image', 'scale'][s.hands++ % 2]);
-          sim.say(h.what === 'scale' ? 'Someone scales both systems to ' + h.r + ' pods by hand.' :
-            'Someone sets image ' + h.img + ' on both systems by hand.', h.code);
+          sim.say(fit([h.what === 'scale' ? 'Someone scales both systems to ' + h.r + ' pods by hand.' :
+            'Someone sets image ' + h.img + ' on both systems by hand.', 'Someone changes both systems by hand.']), h.code);
           sim.render(); await sim.wait(1300);
           await tick(s, sim, true);
           var P = s.push.live, kept = [];
           if (P.hand.replicas) kept.push(P.replicas + ' pods');
           if (P.hand.image) kept.push('image ' + P.image);
-          sim.say('The agent set its system back to ' + sysText(s.live) + '. The pushed one keeps ' + kept.join(' and ') +
-            ' until the next run.');
+          var bad = BROKEN[s.live.image] ? ' (fails)' : '', keeps = '. The pushed one keeps ' + kept.join(' and ');
+          sim.say(fit([
+            'The agent set its system back to ' + sysText(s.live) + keeps + ' until the next run.',
+            'Agent: back to ' + s.live.replicas + ' pods of ' + s.live.image + bad + keeps + ' until its next run.',
+            'Agent: back to ' + s.live.replicas + ' pods of ' + s.live.image + bad + '. The pushed one keeps its hand edit until its next run.',
+            'The agent set its system back to Git. The pushed one keeps its hand edit until the next pipeline run.']));
         } },
       revert: { label: 'Revert commit', caption: 'You revert the last commit and push.',
         why: 'git revert adds a new commit that undoes the last one. Both sides follow it like any other commit, and the history keeps the reverted commit too. Reverting a revert brings the change back.',
