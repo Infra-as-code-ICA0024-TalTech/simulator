@@ -2,9 +2,9 @@
 
 Small animated simulations for TalTech course ICA0024 (Infrastructure as Code), one concept each: idempotence,
 desired state, images, push and pull, plan and state, locking, module versions, checks, GitOps. Each one fits on one
-projector screen (1280x720): a big diagram, one caption per step, a few big buttons. Two uses, one set of pages: the
-instructor projects a simulation in a lecture (Lecture mode), students step through it alone (Study mode, with a short
-"why" under every step). Static files only, nothing loaded from elsewhere: open `index.html` straight from disk, or
+projector screen (1280x720): a big diagram, one caption per step, a few big buttons. One UI per concept, with no modes: the
+instructor projects it in a lecture, students step through the same page alone, and a short "why" is shown under every
+step. Static files only, nothing loaded from elsewhere: open `index.html` straight from disk, or
 serve the folder. The look is the eXtreme Automation (XA) design system, light only, with PT Sans and JetBrains Mono
 self-hosted in `assets/fonts/` (SIL Open Font License, see `assets/fonts/OFL.txt`).
 
@@ -12,15 +12,15 @@ self-hosted in `assets/fonts/` (SIL Open Font License, see `assets/fonts/OFL.txt
 index.html          start page: the simulations in six groups, one card each, built from the registry
 assets/sims.js      the registry: groups (SIM_GROUPS), then per sim id, group, title, one-line idea, lecture, status, card icon
 assets/frame.css    XA colour tokens, the frame, the start page
-assets/frame.js     the frame: top bar, stage, caption, why line, buttons, step engine, keyboard, Lecture/Study switch
+assets/frame.js     the frame: top bar, stage, caption, why line, buttons, step engine, keyboard
 assets/logo.svg     the XA logo used in the top bar
+assets/icons/       tool logos used beside code snippets (sources in NOTICE.txt)
 sims/<id>.html      one simulation per file
 tests/test_page.py  static checks (run: python3 tests/test_page.py)
 ```
 
-In a simulation: Right arrow or Space = next step, Left arrow = step back, R = reset, A = auto-play, 1-3 = the visible
-buttons, S = Lecture or Study mode (remembered in the browser), W = show or hide the "why" in Lecture mode, Esc = back
-to all simulations. The (i) button in the top bar opens the recap: Remember, Common mistake, Simplified here, Lecture.
+In a simulation: Right arrow or Space = next step, Left arrow = step back, R = reset, A = auto-play, 1-4 = the visible
+buttons, Esc = back to all simulations. The (i) button in the top bar opens the recap: Remember, Common mistake, Simplified here, Lecture.
 
 Shortcuts: the `justfile` wraps these commands for [just](https://just.systems). `just` lists the recipes:
 `just serve` (http://127.0.0.1:8000), `just test` (the page checks), `just ci` (page checks, then the Pages
@@ -46,11 +46,11 @@ build into `public/`), `just clean`.
    - `intro: { caption, why, code, buttons }`: what step 0 shows;
    - `steps: [{ caption, why, code, buttons, run(s, sim) }]`: the story, about 4-7 steps. `run` changes `s`; for a
      multi-phase animation make it `async` and call `sim.render()` + `await sim.wait(ms)` between phases.
-     `buttons` (ids, at most 3) is the button set from that step on; leave it out to keep the previous set;
-   - `buttons: { id: { label, caption, why, code, run(s, sim) } }`: free buttons; pressing one shows its caption and
+     `buttons` (ids, at most 4) is the button set from that step on; leave it out to keep the previous set;
+   - `buttons: { id: { label, caption, why, code, run(s, sim) } }` (`label` may be `function (s)` for a switch): free buttons; pressing one shows its caption and
      runs it. Use `sim.say(caption, code)` inside `run` for a caption that depends on the state;
    - `why`: on every step, the intro and every button: 1-3 plain sentences (about 320 characters at most) on why the
-     step matters or what would go wrong otherwise. Study mode always shows it, Lecture mode behind "Why?";
+     step matters or what would go wrong otherwise. It is always shown under the caption;
    - `code`: the optional "In code:" line under the buttons. One short line of real code or a shell command that
      shows where the idea appears, for example `terraform plan`. Prefer the tools of the course (Terraform or
      OpenTofu, Ansible, Packer, cloud-init, Puppet, Argo CD, GitHub) and plain, correct calls;
@@ -72,7 +72,7 @@ build into `public/`), `just clean`.
 ## Verification checklist
 
 - `python3 tests/test_page.py` passes (CI runs it too).
-- 1280x720 in Study mode on every step: no scrolling, the bottom bar fits with the "why" open.
+- 1280x720 on every step and button: no scrolling, the bottom bar fits with the "why".
 - 1920x1080 and phone width (390x844); step back from every step; Auto to the end; every button.
 - Opened over `http://` and straight from disk (`file://`), no console errors, no network requests.
 

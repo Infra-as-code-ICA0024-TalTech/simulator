@@ -1,0 +1,2 @@
+bash.svg and ansible.svg: paths from Simple Icons 15.0.0 (https://simpleicons.org), CC0 1.0, coloured with brand colours.
+The Bash logo and the Ansible mark belong to their owners; they are used here only to identify the tools.

@@ -25,10 +25,8 @@
  *     },
  *   });
  *
- * `why` (intro, steps, buttons): 1-3 plain sentences on why this matters. Lecture mode hides it behind
- * the "Why?" button beside the caption (key W; it closes on the next step); Study mode always shows it.
- * The mode is data-mode="lecture"|"study" on <html>, switched by the top-bar button or key S and
- * remembered in localStorage['iacsim-mode'].
+ * `why` (intro, steps, buttons): 1-3 plain sentences on why this matters, always shown under the caption.
+ * A button's `label` is a string, or function (s) for a button whose name follows the state (a switch).
  *
  * `sim` (passed to init, render and run) has:
  *   sim.canvas          the drawing element (absolute positioning, size sim.W x sim.H)
@@ -45,27 +43,17 @@
  *
  * Runs mutate `s` and may be async. Step back replays the steps from a fresh state, so steps
  * must be deterministic given the state. Keys: Right/Space step, Left back, R reset, A auto,
- * 1-3 the visible buttons, W why, S Lecture/Study, Esc back to all sims.
+ * 1-4 the visible buttons, Esc back to all sims.
  */
 (function () {
   'use strict';
   var root = document.documentElement;
-  var MODE_KEY = 'iacsim-mode';
   var me = document.currentScript;
   var ASSETS = (me && me.src) ? me.src.replace(/[^\/]*$/, '') : '../assets/';
   var speed = (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) ? 0.35 : 1;
   var q = /[?&]speed=([\d.]+)/.exec(location.search);
   if (q) speed = parseFloat(q[1]) || speed;
 
-  function storedMode() {
-    try { return localStorage.getItem(MODE_KEY) === 'study' ? 'study' : 'lecture'; } catch (e) { return 'lecture'; }
-  }
-  function getMode() { return root.dataset.mode === 'study' ? 'study' : 'lecture'; }
-  function setMode(m) {
-    root.dataset.mode = m;
-    try { localStorage.setItem(MODE_KEY, m); } catch (e) { /* private mode: not kept */ }
-  }
-  root.dataset.mode = storedMode();
   if (!document.querySelector('link[rel="icon"]')) {   // XA rose mark, inline (no favicon.ico request)
     var icon = document.createElement('link');
     icon.rel = 'icon';
@@ -108,18 +96,13 @@
           '<img src="' + esc(ASSETS + 'logo.svg') + '" alt="eXtreme Automation" height="26"></a>' +
         '<h1 class="tb-title"><a class="tb-sims" href="' + esc(home) + '" title="All simulations (Esc)">' + esc(meta.title) + '</a></h1>' +
         '<span class="tb-step"></span><span class="tb-spacer"></span>' +
-        '<button class="tb-mode" title="Lecture or Study mode (S)">' +
-          '<span data-m="lecture">Lecture</span><span data-m="study">Study</span></button>' +
         (recap ? '<button class="tb-icon tb-info" title="Recap: remember, common mistake, simplified here" aria-expanded="false">ⓘ</button>' : '') +
         (next ? '<a class="tb-next" href="' + esc(next.id) + '.html" title="Next simulation">' +
           '<span>' + esc(next.title) + ' </span>▶</a>' : '') +
       '</header>' +
       '<main class="stage"><div class="canvas"></div></main>' +
       '<footer class="bottombar">' +
-        '<div class="capline">' +
-          '<p class="caption" aria-live="polite"></p>' +
-          '<button class="tb-why" title="Why this matters (W)" aria-expanded="false" hidden>Why?</button>' +
-        '</div>' +
+        '<p class="caption" aria-live="polite"></p>' +
         '<p class="whyline" aria-live="polite" hidden></p>' +
         '<div class="controls">' +
           '<div class="actions"></div>' +
@@ -136,12 +119,12 @@
       (recap ? '<div class="note" role="dialog" aria-label="Recap" hidden><button class="close" title="Close (Esc)">×</button>' +
         '<h2>Recap</h2>' + recapHtml(recap) + copyrightHtml() + '</div>' : ''));
     var $ = function (sel) { return document.querySelector(sel); };
-    var stage = $('.stage'), canvas = $('.canvas'), captionEl = $('.caption'), whyEl = $('.whyline'), whyBtn = $('.tb-why'),
-        codeEl = $('.codeline'), actionsEl = $('.actions'), stepEl = $('.tb-step'), noteEl = $('.note'), modeBtn = $('.tb-mode');
+    var stage = $('.stage'), canvas = $('.canvas'), captionEl = $('.caption'), whyEl = $('.whyline'), 
+        codeEl = $('.codeline'), actionsEl = $('.actions'), stepEl = $('.tb-step'), noteEl = $('.note');
 
     var state, idx = 0, busy = false, auto = false, gen = 0, instant = false, started = false;
     var keyed = new Map(), touched = null, currentButtons = [];
-    var capTarget = null, whyTarget = '', textSeq = 0, whyOpen = false;
+    var capTarget = null, whyTarget = '', textSeq = 0;
 
     var sim = {
       canvas: canvas, W: 0, H: 0, portrait: false,
@@ -186,14 +169,6 @@
       touched = null;
     }
 
-    /* The why line and its button follow the shown text, the mode and (Lecture) whether it was opened. */
-    function updateWhy() {
-      var has = whyEl.textContent !== '';
-      whyBtn.hidden = !has;
-      whyBtn.setAttribute('aria-expanded', String(has && whyOpen));
-      whyEl.hidden = !(has && (getMode() === 'study' || whyOpen));
-    }
-
     /* Caption and why change together after a short fade; only the latest call is applied, so a
        replay (step back) right after a step cannot be overwritten by the step's pending fade. */
     function say(caption, code, why) {
@@ -208,7 +183,7 @@
           captionEl.textContent = capTarget == null ? '' : capTarget;
           whyEl.textContent = whyTarget;
           captionEl.classList.remove('swap'); whyEl.classList.remove('swap');
-          updateWhy();
+          whyEl.hidden = whyTarget === '';
         };
         if (instant || !started) apply();
         else {
@@ -224,34 +199,28 @@
       }
     }
 
-    function closeWhy() { if (whyOpen) { whyOpen = false; updateWhy(); } }
-    function toggleWhy() {
-      if (getMode() === 'study' || whyEl.textContent === '') return;
-      whyOpen = !whyOpen; updateWhy();
-    }
-    function toggleMode() {
-      setMode(getMode() === 'study' ? 'lecture' : 'study');
-      whyOpen = false; updateWhy(); updateMode();
-    }
-    function updateMode() {
-      var m = getMode();
-      modeBtn.setAttribute('aria-label', 'Mode: ' + (m === 'study' ? 'Study' : 'Lecture') + '. Switch (S)');
-    }
-
     function setButtons(ids) {
       currentButtons = ids || [];
       actionsEl.innerHTML = '';
       currentButtons.forEach(function (id, n) {
         var b = document.createElement('button');
         b.className = 'btn';
-        b.textContent = buttons[id].label;
-        b.title = (buttons[id].title || buttons[id].label) + ' (' + (n + 1) + ')';
         b.addEventListener('click', function () { b.blur(); press(id); });
         actionsEl.appendChild(b);
+      });
+      updateLabels();
+    }
+    function updateLabels() {
+      currentButtons.forEach(function (id, n) {
+        var def = buttons[id], b = actionsEl.children[n];
+        var label = typeof def.label === 'function' ? def.label(state) : def.label;
+        if (b.textContent !== label) b.textContent = label;
+        b.title = (def.title || label) + ' (' + (n + 1) + ')';
       });
     }
 
     function updateBar() {
+      updateLabels();
       stepEl.textContent = 'Step ' + idx + ' / ' + steps.length;
       $('[data-t="step"]').disabled = idx >= steps.length;
       var a = $('[data-t="auto"]');
@@ -273,7 +242,6 @@
     function stepForward() {
       if (busy || idx >= steps.length) return Promise.resolve();
       var st = steps[idx++];
-      closeWhy();
       say(st.caption, st.code, st.why || '');
       if (st.buttons) setButtons(st.buttons);
       return run(st.run);
@@ -290,7 +258,6 @@
     function replay(k) {
       var my = ++gen;
       auto = false; busy = true; instant = true; idx = 0;
-      whyOpen = false;
       root.classList.add('instant');
       state = def.state();
       var p = Promise.resolve();
@@ -302,7 +269,6 @@
         render();
         var shown = shownAfter(k);
         say(shown.caption, shown.code, shown.why); setButtons(shown.buttons);
-        updateWhy();
         void canvas.offsetWidth;
         instant = false; busy = false; started = true;
         requestAnimationFrame(function () { if (!instant) root.classList.remove('instant'); });
@@ -355,8 +321,6 @@
     $('[data-t="step"]').addEventListener('click', function (e) { e.currentTarget.blur(); stopAuto(); stepForward(); });
     $('[data-t="reset"]').addEventListener('click', function (e) { e.currentTarget.blur(); replay(0); });
     $('[data-t="auto"]').addEventListener('click', function (e) { e.currentTarget.blur(); toggleAuto(); });
-    whyBtn.addEventListener('click', function (e) { e.currentTarget.blur(); toggleWhy(); });
-    modeBtn.addEventListener('click', function (e) { e.currentTarget.blur(); toggleMode(); });
     function toggleNote(open) {
       if (!noteEl) return;
       noteEl.hidden = open === undefined ? !noteEl.hidden : !open;
@@ -373,15 +337,12 @@
       else if (k === 'ArrowLeft') { e.preventDefault(); if (idx > 0) replay(idx - 1); }
       else if (k === 'r' || k === 'R') replay(0);
       else if (k === 'a' || k === 'A') toggleAuto();
-      else if (k === 'w' || k === 'W') toggleWhy();
-      else if (k === 's' || k === 'S') toggleMode();
       else if (k >= '1' && k <= '9' && currentButtons[k - 1]) press(currentButtons[k - 1]);
       else if (k === 'Escape') { if (noteEl && !noteEl.hidden) toggleNote(false); else location.href = home; }
     });
     if (window.ResizeObserver) new ResizeObserver(layout).observe(stage);
     window.addEventListener('resize', layout);
 
-    updateMode();
     layout();
     if (def.init) def.init(sim);
     replay(0);

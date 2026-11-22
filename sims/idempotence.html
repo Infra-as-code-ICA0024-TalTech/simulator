@@ -14,6 +14,7 @@
   background: var(--surface); border: 2px solid var(--line-strong); border-radius: 999px; white-space: nowrap; }
 .runs.on { border-color: var(--accent); color: var(--accent-text); box-shadow: var(--ring); }
 .codecard { border: 2px solid var(--line-strong); border-radius: 14px; background: var(--surface); }
+.ticon img { display: block; width: 100%; height: 100%; }
 .fname { font-family: var(--font-mono); font-size: 15px; color: var(--muted); white-space: nowrap; }
 .ci { border: 2px solid var(--line); border-radius: 9px; background: var(--surface-2); color: var(--edge);
   font-family: var(--font-mono); font-size: 18px; line-height: 23px; white-space: pre; padding: 0 12px;
@@ -59,9 +60,11 @@
   var LINE = '10.0.0.5 db-1';
   var CODE = {
     sc: { title: 'Shell script', sub: 'steps to do', file: 'setup.sh', server: 'web-1',
+      icon: '<img src="../assets/icons/bash.svg" alt="Bash">',
       items: [['useradd deploy'], ['echo \'' + LINE + '\' >> /etc/hosts']] },
     guarded: [['id deploy || useradd deploy'], ['grep -q db-1 /etc/hosts ||', '  echo \'' + LINE + '\' >> /etc/hosts']],
     tk: { title: 'Declarative task', sub: 'what should be true', file: 'site.yml', server: 'web-2',
+      icon: '<img src="../assets/icons/ansible.svg" alt="Ansible">',
       items: [['user: name=deploy state=present'], ['lineinfile: path=/etc/hosts', '  line=\'' + LINE + '\'']] }
   };
 
@@ -122,7 +125,9 @@
     // the code: one row per command or task, with what it did on the last run
     var cy = y + 48;
     sim.place(sim.box(k + '-card', 'codecard'), x, cy, w, 148);
-    sim.place(sim.box(k + '-file', 'fname'), x + 16, cy + 7, 300, 20).textContent = def.file;
+    var ic = sim.place(sim.box(k + '-icon', 'ticon'), x + 13, cy + 2, 28, 28);
+    if (!ic.firstChild) ic.innerHTML = def.icon;
+    sim.place(sim.box(k + '-file', 'fname'), x + 48, cy + 7, 300, 20).textContent = def.file;
     [[cy + 32, 44], [cy + 82, 56]].forEach(function (r, i) {
       sim.place(sim.box(k + '-ci' + i, 'ci' + (L.hot === i ? ' hot' : '')), x + 12, r[0], w - 24, r[1])
         .textContent = items[i].join('\n');
@@ -175,6 +180,17 @@
     else if (n === 1) sim.say('Run ' + L.runs + ' of the script: useradd creates the user, echo appends the line.');
     else sim.say('Run ' + L.runs + ' of the script: useradd fails again, and /etc/hosts now has ' + n + ' copies of the line.');
   }
+  function switchVersion(s, sim) {
+    var L = s.sc;
+    s.guarded = !s.guarded;
+    L.tags = [null, null]; L.fx = {}; L.out = null;   // they belonged to the other version
+    if (s.guarded) sim.say('The script now checks before each change, so it is idempotent. Run it to see.',
+      'grep -q db-1 /etc/hosts || echo \'' + LINE + '\' >> /etc/hosts',
+      'A check in front of each command makes a re-run safe. It does not clean up copies that earlier runs left behind: press Reset server for a clean start.');
+    else sim.say('The checks are gone, so the script is not idempotent. Run it to see.',
+      'echo \'' + LINE + '\' >> /etc/hosts',
+      'Without checks every run repeats both commands: useradd fails once the user exists, and echo appends another copy of the line.');
+  }
   function taskSay(s, sim) {
     var L = s.tk, c = L.out[1].slice(-1);
     sim.say('Run ' + L.runs + ' of the task: changed=' + c + (c === '0' ? '. Nothing was different, so nothing was touched.' : '. It fixed what was missing.'));
@@ -224,7 +240,7 @@
       { caption: 'Run 3 of both: the script fails again and /etc/hosts has three copies. The task stays at changed=0.',
         why: 'Idempotent means: run once or run ten times, the result is the same. The script is not: every run adds one more line and one more error. That makes a re-run after a failure risky, exactly when it should be safe.',
         code: 'ansible-playbook site.yml   # run 3: changed=0',
-        buttons: ['script', 'task', 'reset'],
+        buttons: ['script', 'task', 'reset', 'version'],
         run: function (s, sim) { return Promise.all([runScript(s, sim, true), runTask(s, sim, true)]); } },
       { caption: 'With checks the script is idempotent too: the next run adds nothing. The old copies stay, though.',
         why: 'Idempotence is a property of the code, not of the tool. Declarative tools build the check into every task; in a script you write each check yourself, and it is easy to miss one. Checks stop new copies but do not clean up old ones.',
@@ -247,7 +263,12 @@
       reset: { label: 'Reset server', caption: 'Both servers are fresh again: no deploy user, no hosts line. The code stays as it is.',
         why: 'A fresh server replays the first run: both approaches change things on run 1. The difference only shows from run 2 on, which is why testing a script once on a clean machine proves little.',
         code: '',
-        run: function (s) { s.sc = server(); s.tk = server(); } }
+        run: function (s) { s.sc = server(); s.tk = server(); } },
+      version: { label: function (s) { return s.guarded ? 'Make script non-idempotent' : 'Make script idempotent'; },
+        caption: 'You edit the script. The server stays as it is until the next run.',
+        why: 'Editing code changes nothing on the server. Run the script to compare the two versions on the same server.',
+        code: '',
+        run: function (s, sim) { switchVersion(s, sim); } }
     }
   });
 })();

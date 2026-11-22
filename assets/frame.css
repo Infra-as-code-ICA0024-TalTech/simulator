@@ -1,7 +1,7 @@
 /*
  * IaC concept simulator: shared look in the XA design system (light only). Fonts, colour tokens, the sim frame
  * (top bar, stage, bottom bar with the caption, the "why" line and the controls), the recap popover, and a few
- * classes sims may use on their own drawings. Mode (Lecture / Study) is data-mode on <html>, set by frame.js.
+ * classes sims may use on their own drawings.
  */
 @font-face { font-family: "PT Sans"; src: url(fonts/PTSans-Regular.woff2) format("woff2");
   font-weight: 400; font-style: normal; font-display: swap; }
@@ -79,31 +79,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tb-icon { background: #ffffff; border: 1px solid var(--line-strong); color: var(--edge); border-radius: var(--r-md);
   padding: 3px 10px; font-size: clamp(16px, .45vw + 10px, 24px); line-height: 1.2; white-space: nowrap; }
 .tb-icon:hover, .tb-icon[aria-expanded="true"] { border-color: var(--edge); }
-.tb-mode { display: inline-flex; padding: 3px; gap: 2px; background: #ffffff; border: 1px solid var(--line-strong);
-  border-radius: 999px; font-size: clamp(14px, .35vw + 10px, 20px); font-weight: 700; white-space: nowrap; }
-.tb-mode span { padding: 3px 12px; border-radius: 999px; color: var(--muted); line-height: 1.2; }
-.tb-mode:hover { border-color: var(--edge); }
-[data-mode="lecture"] .tb-mode [data-m="lecture"], [data-mode="study"] .tb-mode [data-m="study"] {
-  background: var(--edge); color: #ffffff; }
 
 /* ---------- sim page ---------- */
 body.sim { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
 .stage { flex: 1 1 auto; position: relative; min-height: 0; overflow: hidden; }
 .canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; font-size: 24px; }
 .bottombar { flex: none; padding: 10px 24px 12px; background: var(--surface); border-top: 1px solid var(--line); }
-.capline { display: flex; align-items: center; gap: 14px; margin: 0 0 8px; }
 .caption {
-  flex: 0 1 auto; min-width: 0; margin: 0; font-size: clamp(20px, 1.25vw + 12px, 40px); font-weight: 700; line-height: 1.22;
+  margin: 0 0 8px; font-size: clamp(20px, 1.25vw + 12px, 40px); font-weight: 700; line-height: 1.22;
   color: var(--text); min-height: 2.44em; display: flex; align-items: center; transition: opacity 160ms;
 }
-.tb-why { flex: none; background: #ffffff; color: var(--info); border: 1px solid var(--line-strong); border-radius: 999px;
-  padding: .3em .9em; font-size: clamp(14px, .4vw + 9px, 20px); font-weight: 700; line-height: 1.1; white-space: nowrap; }
-.tb-why:hover, .tb-why[aria-expanded="true"] { border-color: var(--info); background: var(--info-bg); }
-.tb-why[hidden], [data-mode="study"] .tb-why { display: none; }
 .whyline {
   margin: 0 0 8px; padding: 5px 12px; background: var(--info-bg); border-left: 4px solid var(--xa-sky);
   border-radius: 0 var(--r-sm) var(--r-sm) 0; color: var(--text); font-size: clamp(15px, .5vw + 10px, 26px);
   line-height: 1.32; transition: opacity 160ms;
+  min-height: calc(2.64em + 10px); align-content: center;   /* room for two lines: the drawing keeps its size between steps */
 }
 .whyline[hidden] { display: none; }
 .caption.swap, .whyline.swap { opacity: .15; }
@@ -157,13 +147,17 @@ body.sim { display: flex; flex-direction: column; height: 100vh; height: 100dvh;
   body.sim { height: auto; min-height: 100dvh; overflow: visible; }
   .stage { flex: none; }
   .topbar { flex-wrap: wrap; gap: 8px 10px; padding: 8px 12px; }
-  .tb-title { flex: 1 1 0; }
-  .tb-spacer { display: none; }
+  .tb-title { order: 1; flex: 1 0 100%; padding-left: 0; border-left: 0; white-space: normal; }
   .tb-next span { display: none; }
   .bottombar { padding: 10px 14px 16px; }
-  .caption { min-height: 0; }
+  .caption, .whyline { min-height: 0; }
   .codeline { white-space: normal; }
   .bottomline { flex-wrap: wrap; gap: 0 12px; }
+}
+
+@media (max-width: 359px) {
+  .topbar { gap: 8px 6px; padding: 8px; }
+  .tb-home img { height: 21px; }
 }
 
 /* ---------- drawing helpers for sims (keyed elements made by sim.box) ---------- */
