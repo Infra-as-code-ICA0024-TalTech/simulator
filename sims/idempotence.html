@@ -15,7 +15,7 @@
 .runs.on { border-color: var(--accent); color: var(--accent-text); box-shadow: var(--ring); }
 .codecard { border: 2px solid var(--line-strong); border-radius: 14px; background: var(--surface); }
 .ticon img { display: block; width: 100%; height: 100%; }
-.fname { font-family: var(--font-mono); font-size: 15px; color: var(--muted); white-space: nowrap; }
+.fname { font-family: var(--font-mono); font-size: 15px; line-height: 20px; color: var(--muted); white-space: nowrap; }
 .ci { border: 2px solid var(--line); border-radius: 9px; background: var(--surface-2); color: var(--edge);
   font-family: var(--font-mono); font-size: 18px; line-height: 23px; white-space: pre; padding: 0 12px;
   display: flex; align-items: center; overflow: hidden; }
@@ -108,8 +108,8 @@
   }
 
   function geometry(sim) {
-    if (!sim.portrait) return { lanes: [[20, 0, 564], [616, 0, 564]], srvH: 290, rows: 4, pitch: 46, rowH: 38 };
-    return { lanes: [[20, 0, 600], [20, 452, 600]], srvH: 194, rows: 3, pitch: 32, rowH: 28 };
+    if (!sim.portrait) return { lanes: [[20, 0, 564], [616, 0, 564]], srvH: 278, rows: 4, pitch: 44, rowH: 36 };
+    return { lanes: [[20, 0, 600], [20, 464, 600]], srvH: 194, rows: 3, pitch: 32, rowH: 28 };
   }
 
   function drawLane(sim, k, L, def, items, g, G) {
@@ -124,11 +124,11 @@
 
     // the code: one row per command or task, with what it did on the last run
     var cy = y + 48;
-    sim.place(sim.box(k + '-card', 'codecard'), x, cy, w, 148);
-    var ic = sim.place(sim.box(k + '-icon', 'ticon'), x + 13, cy + 2, 28, 28);
+    sim.place(sim.box(k + '-card', 'codecard'), x, cy, w, 160);
+    var ic = sim.place(sim.box(k + '-icon', 'ticon'), x + 12, cy + 11, 24, 24);
     if (!ic.firstChild) ic.innerHTML = def.icon;
-    sim.place(sim.box(k + '-file', 'fname'), x + 48, cy + 7, 300, 20).textContent = def.file;
-    [[cy + 32, 44], [cy + 82, 56]].forEach(function (r, i) {
+    sim.place(sim.box(k + '-file', 'fname'), x + 46, cy + 13, 300, 20).textContent = def.file;
+    [[cy + 44, 44], [cy + 94, 56]].forEach(function (r, i) {
       sim.place(sim.box(k + '-ci' + i, 'ci' + (L.hot === i ? ' hot' : '')), x + 12, r[0], w - 24, r[1])
         .textContent = items[i].join('\n');
       var tag = L.tags[i];
@@ -137,13 +137,13 @@
 
     // what the run printed
     var o = L.out, ob = sim.box(k + '-out', 'out ' + (o ? o[0] : ''));
-    sim.place(ob, x, y + 204, w, 38);
+    sim.place(ob, x, y + 216, w, 38);
     ob.innerHTML = '<i>output</i><span></span><span class="x"></span>';
     ob.children[1].textContent = o ? o[1] : '';
     ob.children[2].textContent = o ? o[2] : '';
 
     // the server: its users and its /etc/hosts
-    var sy = y + 250;
+    var sy = y + 262;
     sim.place(sim.box(k + '-srv', 'server'), x, sy, w, srvH);
     sim.place(sim.box(k + '-sname', 'sname'), x + 18, sy + 10, 120, 36).textContent = def.server;
     var ux = x + w - 18 - L.users.length * 110 + 10;
@@ -199,7 +199,7 @@
   Sim.create({
     id: 'idempotence',
     size: [1200, 540],
-    portrait: [640, 900],
+    portrait: [640, 920],
     autoDelay: 2800,
     recap: {
       remember: 'Idempotent code can run any number of times: the first run makes the change, every later run finds nothing to do and changes nothing.',
@@ -213,7 +213,7 @@
       var G = geometry(sim);
       drawLane(sim, 'sc', s.sc, CODE.sc, s.guarded ? CODE.guarded : CODE.sc.items, G.lanes[0], G);
       drawLane(sim, 'tk', s.tk, CODE.tk, CODE.tk.items, G.lanes[1], G);
-      if (sim.portrait) sim.place(sim.box('div', 'divider'), 20, 447, 600, 2);
+      if (sim.portrait) sim.place(sim.box('div', 'divider'), 20, 459, 600, 2);
       else sim.place(sim.box('div', 'divider'), 599, 10, 2, 520);
     },
 
