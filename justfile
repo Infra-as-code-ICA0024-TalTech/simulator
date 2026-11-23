@@ -27,3 +27,11 @@ ci: test pages
 # Remove the local public/ build.
 clean:
     rm -rf public
+
+# Zip the last commit as <repo>-source-<timestamp>.zip (to share with students).
+package:
+    out="{{file_name(justfile_directory())}}-source-$(date +%Y%m%d-%H%M%S).zip"; git archive --format=zip --output="$out" HEAD && echo "packaged $out"
+
+# Zip the working tree as it is now: tracked and new files, without ignored ones.
+package-worktree:
+    out="{{file_name(justfile_directory())}}-source-$(date +%Y%m%d-%H%M%S).zip"; git ls-files -z -co --exclude-standard | while IFS= read -r -d '' f; do [ -e "$f" ] && printf '%s\n' "$f"; done | zip -q "$out" -@ && echo "packaged $out"
