@@ -69,6 +69,15 @@
     for (var j = i + 1; j < list.length; j++) if (list[j].status === 'ready') return list[j];
     return null;
   }
+  function prevReady(id) {
+    var list = registry(), i = list.findIndex(function (x) { return x.id === id; });
+    for (var j = i - 1; j >= 0; j--) if (list[j].status === 'ready') return list[j];
+    return null;
+  }
+  function navLink(cls, sim, text) {
+    return sim ? '<a class="' + cls + '" href="' + esc(sim.id) + '.html" title="' + esc(sim.title) + '">' + text + '</a>'
+      : '<span class="' + cls + ' off" aria-disabled="true">' + text + '</span>';
+  }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
   var RECAP = [['remember', 'Remember'], ['mistake', 'Common mistake'], ['simplified', 'Simplified here'], ['lecture', 'Lecture']];
@@ -86,20 +95,24 @@
   function create(def) {
     var meta = registry().find(function (x) { return x.id === def.id; }) || { title: def.id };
     var steps = def.steps || [], buttons = def.buttons || {}, intro = def.intro || { caption: '' };
-    var next = nextReady(def.id), recap = def.recap;
+    var next = nextReady(def.id), prev = prevReady(def.id), recap = def.recap;
     var home = '../index.html' + (meta.group ? '#' + meta.group : '');   // back to this sim's group
     document.title = meta.title + ' · IaC concepts';
     document.body.classList.add('sim');
     document.body.insertAdjacentHTML('afterbegin',
       '<header class="topbar">' +
+        '<div class="tb-left">' +
+          '<h1 class="tb-title"><a class="tb-sims" href="' + esc(home) + '" title="All simulations (Esc)">' + esc(meta.title) + '</a></h1>' +
+          '<span class="tb-step"></span>' +
+          (recap ? '<button class="tb-icon tb-info" title="Recap: remember, common mistake, simplified here" aria-expanded="false">ⓘ</button>' : '') +
+        '</div>' +
         '<a class="tb-home" href="https://extremeautomation.io" rel="noopener" target="_blank" aria-label="eXtreme Automation">' +
           '<img src="' + esc(ASSETS + 'logo.svg') + '" alt="eXtreme Automation" height="26"></a>' +
-        '<a class="tb-back" href="' + esc(home) + '" title="All simulations (Esc)"><span aria-hidden="true">\u2190</span><span class="tb-back-l"> All sims</span></a>' +
-        '<h1 class="tb-title"><a class="tb-sims" href="' + esc(home) + '" title="All simulations (Esc)">' + esc(meta.title) + '</a></h1>' +
-        '<span class="tb-step"></span><span class="tb-spacer"></span>' +
-        (recap ? '<button class="tb-icon tb-info" title="Recap: remember, common mistake, simplified here" aria-expanded="false">ⓘ</button>' : '') +
-        (next ? '<a class="tb-next" href="' + esc(next.id) + '.html" title="Next simulation">' +
-          '<span>' + esc(next.title) + ' </span>▶</a>' : '') +
+        '<nav class="tb-nav" aria-label="Simulations">' +
+          navLink('tb-prev', prev, '\u25c0<span class="tb-l"> Prev</span>') + '<span class="tb-sep">|</span>' +
+          '<a class="tb-index" href="' + esc(home) + '" title="All simulations (Esc)">All sims</a><span class="tb-sep">|</span>' +
+          navLink('tb-next', next, '<span class="tb-l">Next </span>\u25b6') +
+        '</nav>' +
       '</header>' +
       '<main class="stage"><div class="canvas"></div></main>' +
       '<footer class="bottombar">' +
@@ -306,10 +319,11 @@
       var sw = stage.clientWidth;
       var tall = narrow || stage.clientWidth < stage.clientHeight;
       var size = (tall && def.portrait) ? def.portrait : (def.size || [1200, 540]);
-      var sh;
-      if (narrow) { sh = Math.round(sw * size[1] / size[0]); stage.style.height = sh + 'px'; }
-      else { stage.style.height = ''; sh = stage.clientHeight; }
-      var k = Math.min(sw / size[0], sh / size[1]);
+      var sh, pad;
+      // a margin inside the stage, so a drawing never touches its edges
+      if (narrow) { pad = 8; sh = Math.round((sw - 2 * pad) * size[1] / size[0] + 2 * pad); stage.style.height = sh + 'px'; }
+      else { stage.style.height = ''; sh = stage.clientHeight; pad = Math.round(Math.max(8, Math.min(24, Math.min(sw, sh) * 0.025))); }
+      var k = Math.min((sw - 2 * pad) / size[0], (sh - 2 * pad) / size[1]);
       canvas.style.width = size[0] + 'px'; canvas.style.height = size[1] + 'px';
       canvas.style.transform = 'translate(' + ((sw - size[0] * k) / 2) + 'px,' + ((sh - size[1] * k) / 2) + 'px) scale(' + k + ')';
       if (size[0] !== sim.W || size[1] !== sim.H) {
