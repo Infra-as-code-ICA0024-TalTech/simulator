@@ -68,6 +68,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
   font-size: clamp(19px, 1.1vw + 7px, 30px); font-weight: 700; line-height: 1.2;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .tb-title a { color: inherit; text-decoration: none; }
+/* The logo's letters sit high in its image; lift the title so both baselines line up. */
+.tb-title { position: relative; top: -.1em; }
+.tb-back { flex: none; padding-left: 14px; border-left: 1px solid var(--line); color: var(--edge); text-decoration: none;
+  font-weight: 700; font-size: clamp(15px, .4vw + 10px, 22px); line-height: 1.2; white-space: nowrap; }
+.tb-back:hover { color: var(--accent); }
 .tb-title a:hover { text-decoration: underline; }
 .tb-step { font-family: var(--font-mono); font-size: clamp(13px, .35vw + 9px, 19px); color: var(--muted);
   border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 11px; white-space: nowrap;
@@ -150,6 +155,7 @@ body.sim { display: flex; flex-direction: column; height: 100vh; height: 100dvh;
   .topbar { flex-wrap: wrap; gap: 8px 10px; padding: 8px 12px; }
   .tb-title { order: 1; flex: 1 0 100%; padding-left: 0; border-left: 0; white-space: normal; }
   .tb-next span { display: none; }
+  .tb-back-l { display: none; }
   .bottombar { padding: 10px 14px 16px; }
   .caption, .whyline { min-height: 0; }
   .codeline { white-space: normal; }

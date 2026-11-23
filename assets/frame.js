@@ -94,6 +94,7 @@
       '<header class="topbar">' +
         '<a class="tb-home" href="https://extremeautomation.io" rel="noopener" target="_blank" aria-label="eXtreme Automation">' +
           '<img src="' + esc(ASSETS + 'logo.svg') + '" alt="eXtreme Automation" height="26"></a>' +
+        '<a class="tb-back" href="' + esc(home) + '" title="All simulations (Esc)"><span aria-hidden="true">\u2190</span><span class="tb-back-l"> All sims</span></a>' +
         '<h1 class="tb-title"><a class="tb-sims" href="' + esc(home) + '" title="All simulations (Esc)">' + esc(meta.title) + '</a></h1>' +
         '<span class="tb-step"></span><span class="tb-spacer"></span>' +
         (recap ? '<button class="tb-icon tb-info" title="Recap: remember, common mistake, simplified here" aria-expanded="false">ⓘ</button>' : '') +

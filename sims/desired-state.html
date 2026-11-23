@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Desired vs actual state · IaC concepts</title>
+<link rel="icon" href="../assets/favicon.png" type="image/png">
 <link rel="stylesheet" href="../assets/frame.css">
 <script src="../assets/sims.js"></script>
 <script src="../assets/frame.js"></script>
@@ -121,9 +122,9 @@
 
   function geometry(sim) {
     if (!sim.portrait) return { code: [20, 0, 420], act: [480, 0, 700], card: 250, srvW: 220, srvGap: 20, srvY: 48,
-      vertical: false, outY: 318, tagY: 364, legend: [20, 330], pill: [1040, 7] };
+      vertical: false, outY: 318, tagY: 364, legend: [20, 316], lgPitch: 40, pill: [1040, 7] };
     return { code: [20, 0, 600], act: [20, 318, 600], card: 250, srvW: 190, srvGap: 15, srvY: 366,
-      vertical: true, outY: 630, tagY: 676, legend: [20, 736], pill: [480, 325] };
+      vertical: true, outY: 630, tagY: 676, legend: [20, 736], lgPitch: 46, pill: [480, 325] };
   }
 
   function chipText(s, S, i) {
@@ -133,7 +134,7 @@
 
   Sim.create({
     id: 'desired-state',
-    size: [1200, 540],
+    size: [1200, 440],
     portrait: [640, 920],
     autoDelay: 2800,
     recap: {
@@ -196,10 +197,10 @@
       // legend
       var lx = G.legend[0], ly = G.legend[1];
       [['ok', 'matches the code'], ['diff', 'differs from the code'], ['fixed', 'changed by the last run']].forEach(function (L, i) {
-        sim.place(sim.box('sw' + i, 'sw ' + L[0]), lx + 4, ly + i * 46 + 5, 36, 26);
-        sim.place(sim.box('lg' + i, 'lg'), lx + 54, ly + i * 46, 340, 34).textContent = L[1];
+        sim.place(sim.box('sw' + i, 'sw ' + L[0]), lx + 4, ly + i * G.lgPitch + 5, 36, 26);
+        sim.place(sim.box('lg' + i, 'lg'), lx + 54, ly + i * G.lgPitch, 340, 34).textContent = L[1];
       });
-      if (!sim.portrait) sim.place(sim.box('div', 'divider'), 459, 10, 2, 520);
+      if (!sim.portrait) sim.place(sim.box('div', 'divider'), 459, 10, 2, 420);
     },
 
     intro: { caption: 'Desired state lives in the code; actual state is what each server has now. The three servers start different.',

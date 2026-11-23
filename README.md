@@ -20,7 +20,7 @@ tests/test_page.py  static checks (run: python3 tests/test_page.py)
 ```
 
 In a simulation: Right arrow or Space = next step, Left arrow = step back, R = reset, A = auto-play, 1-4 = the visible
-buttons, Esc = back to all simulations. The (i) button in the top bar opens the recap: Remember, Common mistake, Simplified here, Lecture.
+buttons, Esc or "← All sims" in the top bar = back to all simulations. The (i) button in the top bar opens the recap: Remember, Common mistake, Simplified here, Lecture.
 
 Shortcuts: the `justfile` wraps these commands for [just](https://just.systems). `just` lists the recipes:
 `just serve` (http://127.0.0.1:8000), `just test` (the page checks), `just ci` (page checks, then the Pages
