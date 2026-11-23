@@ -27,7 +27,7 @@ window.SIMS = [
   { id: 'idempotence', group: 'concepts', title: 'Idempotence', lecture: 1, status: 'ready',
     idea: 'Running the same code twice leaves the system as it is.',
     icon: '<rect class="m" x="4" y="8" width="24" height="24" rx="5"/><rect class="r" x="36" y="8" width="24" height="24" rx="5"/><path class="s" d="M30 20h4M32 17l3 3-3 3" fill="none" stroke-width="2"/>' },
-  { id: 'desired-state', group: 'concepts', title: 'Desired vs actual state', lecture: 1, status: 'coming',
+  { id: 'desired-state', group: 'concepts', title: 'Desired vs actual state', lecture: 1, status: 'ready',
     idea: 'The tool fixes only the difference; a manual change is drift it reverts.',
     icon: '<rect class="r" x="4" y="6" width="22" height="28" rx="4"/><rect class="a" x="38" y="6" width="22" height="28" rx="4"/><path class="s" d="M28 20h8" fill="none" stroke-width="2.5"/>' },
   { id: 'imperative-declarative', group: 'concepts', title: 'Imperative vs declarative', lecture: 1, status: 'coming',

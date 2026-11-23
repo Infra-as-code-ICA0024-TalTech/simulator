@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desired vs actual state · IaC concepts</title>
+<link rel="stylesheet" href="../assets/frame.css">
+<script src="../assets/sims.js"></script>
+<script src="../assets/frame.js"></script>
+<style>
+.ltitle { font-size: 30px; font-weight: 700; color: var(--edge); white-space: nowrap; line-height: 40px; }
+.ltitle span { font-size: 20px; font-weight: 400; color: var(--muted); margin-left: 10px; }
+.runs { font-family: var(--font-mono); font-size: 18px; line-height: 30px; text-align: center; color: var(--muted);
+  background: var(--surface); border: 2px solid var(--line-strong); border-radius: 999px; white-space: nowrap; }
+.runs.on { border-color: var(--accent); color: var(--accent-text); box-shadow: var(--ring); }
+.codecard { border: 2px solid var(--line-strong); border-radius: 14px; background: var(--surface); }
+.ticon img { display: block; width: 100%; height: 100%; }
+.fname { font-family: var(--font-mono); font-size: 15px; line-height: 20px; color: var(--muted); white-space: nowrap; }
+.ci { border: 2px solid var(--line); border-radius: 9px; background: var(--surface-2); color: var(--edge);
+  font-family: var(--font-mono); font-size: 18px; line-height: 23px; white-space: pre; padding: 0 12px;
+  display: flex; align-items: center; overflow: hidden; }
+.ci.hot { border-color: var(--accent); background: var(--surface); box-shadow: var(--ring); }
+.ci.edit { border-color: var(--accent); background: var(--surface); }
+.server { border: 3px solid var(--edge); border-radius: 14px; background: var(--surface); }
+.server.drift { border-color: var(--warn); }
+.sname { font-size: 24px; font-weight: 700; color: var(--edge); white-space: nowrap; line-height: 32px; }
+.rl { font-size: 17px; font-weight: 700; color: var(--muted); white-space: nowrap; line-height: 34px; }
+.rl.v { font-size: 15px; line-height: 22px; }
+.chip { font-family: var(--font-mono); font-size: 17px; display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--line-strong); border-radius: 9px; background: var(--surface-2); color: var(--text);
+  white-space: nowrap; }
+.chip.ok { border-color: var(--read); background: var(--read-bg); color: var(--read); }
+.chip.diff, .chip.drift { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.chip.drift { border-style: dashed; }
+.chip.fixed { border-color: var(--read); background: var(--read-bg); color: var(--read); box-shadow: 0 0 0 4px var(--warn); }
+.scan { border: 2px solid var(--accent); border-radius: 12px; box-shadow: var(--ring); }
+.out { font-family: var(--font-mono); font-size: 17px; display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--muted); white-space: nowrap; }
+.out.warn { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+.out.read { border-color: var(--read); background: var(--read-bg); color: var(--read); }
+.tag { font-size: 16px; font-weight: 700; line-height: 30px; text-align: center; border-radius: 999px; white-space: nowrap;
+  background: var(--warn-bg); color: var(--warn); }
+.lg { font-size: 17px; color: var(--muted); white-space: nowrap; line-height: 34px; }
+.sw { border-radius: 8px; border: 2px solid var(--line-strong); }
+.sw.ok { border-color: var(--read); background: var(--read-bg); }
+.sw.diff { border-color: var(--warn); background: var(--warn-bg); }
+.sw.fixed { border-color: var(--read); background: var(--read-bg); box-shadow: 0 0 0 4px var(--warn); }
+.divider { background: var(--line); }
+</style>
+</head>
+<body>
+<script>
+(function () {
+  var ROWS = [
+    { key: 'pkg', label: 'nginx', want: function () { return 'yes'; } },
+    { key: 'port', label: 'port', want: function (s) { return s.port; } },
+    { key: 'svc', label: 'service', want: function () { return 'up'; } }
+  ];
+  function codeItems(s) {
+    return [['package: name=nginx', '  state=present'],
+      ['lineinfile: path=site.conf', '  line=\'listen ' + s.port + '\''],
+      ['service: name=nginx', '  state=started']];
+  }
+  // Hand edits in a fixed order, so step back replays them the same way.
+  var EDITS = [
+    { srv: 1, row: 1, val: function (s) { return s.port === '80' ? '8080' : '81'; }, what: 'changes the port' },
+    { srv: 2, row: 2, val: function () { return 'down'; }, what: 'stops nginx' },
+    { srv: 0, row: 1, val: function (s) { return s.port === '80' ? '81' : '80'; }, what: 'changes the port' }
+  ];
+
+  function srv(name, pkg, port, svc) { return { name: name, v: { pkg: pkg, port: port, svc: svc }, mark: {}, out: null, edited: -1 }; }
+  function fresh() {
+    return { port: '80', runs: 0, checks: 0, hot: -1, last: '', nextEdit: 0, portEdited: false,
+      servers: [srv('web-1', 'no', '-', '-'), srv('web-2', 'yes', '8080', 'down'), srv('web-3', 'yes', '80', 'up')] };
+  }
+  function wantOf(s, i) { return ROWS[i].want(s); }
+  function differs(s, S, i) { return S.v[ROWS[i].key] !== wantOf(s, i); }
+  function clearMarks(s) { s.servers.forEach(function (S) { S.mark = {}; S.out = null; }); }
+
+  /* Check mode: compare row by row, mark what differs, change nothing. */
+  async function check(s, sim, fast) {
+    var w = fast ? 300 : 550;
+    s.checks++; s.last = 'check ' + s.checks; clearMarks(s);
+    for (var i = 0; i < ROWS.length; i++) {
+      s.hot = i; sim.render(); await sim.wait(w);
+      s.servers.forEach(function (S) { S.mark[i] = differs(s, S, i) ? 'diff' : 'ok'; });
+      sim.render(); await sim.wait(w);
+    }
+    s.hot = -1;
+    s.servers.forEach(function (S) {
+      var n = ROWS.filter(function (r, i) { return S.mark[i] === 'diff'; }).length;
+      S.out = n ? ['warn', 'would change ' + n] : ['read', 'ok'];
+    });
+  }
+
+  /* Run: compare row by row and change only what differs. */
+  async function run(s, sim, fast) {
+    var w = fast ? 300 : 550, changed = [0, 0, 0];
+    s.runs++; s.last = 'run ' + s.runs; clearMarks(s);
+    for (var i = 0; i < ROWS.length; i++) {
+      s.hot = i; sim.render(); await sim.wait(w);
+      s.servers.forEach(function (S, j) {
+        if (differs(s, S, i)) { S.v[ROWS[i].key] = wantOf(s, i); S.mark[i] = 'fixed'; changed[j]++; if (S.edited === i) S.edited = -1; }
+        else S.mark[i] = 'ok';
+      });
+      sim.render(); await sim.wait(w);
+    }
+    s.hot = -1;
+    s.servers.forEach(function (S, j) { S.out = [changed[j] ? 'warn' : 'read', 'changed=' + changed[j]]; });
+    return changed;
+  }
+
+  function handEdit(s) {
+    var e = EDITS[s.nextEdit % EDITS.length], S = s.servers[e.srv];
+    s.nextEdit++;
+    if (S.v.pkg !== 'yes') S.v.pkg = 'yes';
+    S.v[ROWS[e.row].key] = e.val(s);
+    S.mark = {}; S.mark[e.row] = 'drift'; S.out = null; S.edited = e.row;
+    return { name: S.name, what: e.what, val: S.v[ROWS[e.row].key], row: e.row };
+  }
+
+  function geometry(sim) {
+    if (!sim.portrait) return { code: [20, 0, 420], act: [480, 0, 700], card: 250, srvW: 220, srvGap: 20, srvY: 48,
+      vertical: false, outY: 318, tagY: 364, legend: [20, 330], pill: [1040, 7] };
+    return { code: [20, 0, 600], act: [20, 318, 600], card: 250, srvW: 190, srvGap: 15, srvY: 366,
+      vertical: true, outY: 630, tagY: 676, legend: [20, 736], pill: [480, 325] };
+  }
+
+  function chipText(s, S, i) {
+    var have = S.v[ROWS[i].key];
+    return S.mark[i] === 'diff' ? have + ' → ' + wantOf(s, i) : have;
+  }
+
+  Sim.create({
+    id: 'desired-state',
+    size: [1200, 540],
+    portrait: [640, 920],
+    autoDelay: 2800,
+    recap: {
+      remember: 'The code describes the desired state; the tool compares it with the actual state of every server and changes only the difference, so each run converges and reverts drift.',
+      mistake: 'Fixing a server by hand and leaving the code as it was. The next run quietly reverts the fix, or the hand edit survives on one server and nobody knows why it behaves differently.',
+      simplified: 'Three properties stand in for a whole server, and check mode is shown as exact. Real check runs can miss changes that depend on earlier tasks, and tools differ in what they count as changed.',
+      lecture: 'Lecture 1'
+    },
+    state: fresh,
+
+    render: function (s, sim) {
+      var G = geometry(sim), items = codeItems(s);
+
+      // desired state: the code
+      var cx = G.code[0], cy0 = G.code[1], cw = G.code[2];
+      var t = sim.box('dt', 'ltitle');
+      sim.place(t, cx, cy0 + 2, cw, 40);
+      t.innerHTML = '<b>Desired state</b><span>in code</span>';
+      var cy = cy0 + 48;
+      sim.place(sim.box('card', 'codecard'), cx, cy, cw, G.card);
+      var ic = sim.place(sim.box('icon', 'ticon'), cx + 12, cy + 11, 24, 24);
+      if (!ic.firstChild) ic.innerHTML = '<img src="../assets/icons/ansible.svg" alt="Ansible">';
+      sim.place(sim.box('file', 'fname'), cx + 46, cy + 13, 300, 20).textContent = 'site.yml';
+      items.forEach(function (it, i) {
+        var cls = 'ci' + (s.hot === i ? ' hot' : (i === 1 && s.portEdited ? ' edit' : ''));
+        sim.place(sim.box('ci' + i, cls), cx + 12, cy + 44 + i * 66, cw - 24, 56).textContent = it.join('\n');
+      });
+
+      // actual state: the servers
+      var ax = G.act[0], ay0 = G.act[1];
+      var a = sim.box('at', 'ltitle');
+      sim.place(a, ax, ay0 + 2, 360, 40);
+      a.innerHTML = '<b>Actual state</b><span>on the servers</span>';
+      sim.place(sim.box('runs', 'runs' + (s.hot >= 0 ? ' on' : '')), G.pill[0], G.pill[1], 140, 34)
+        .textContent = s.last || 'not run yet';
+      var sy = G.srvY;
+      if (s.hot >= 0) {
+        var hy = G.vertical ? sy + 40 + s.hot * 66 : cy + 40 + s.hot * 66;
+        sim.place(sim.box('scan', 'scan'), ax - 6, hy, G.vertical ? cw + 12 : 3 * G.srvW + 2 * G.srvGap + 12, 64);
+      }
+      s.servers.forEach(function (S, j) {
+        var x = ax + j * (G.srvW + G.srvGap), w = G.srvW;
+        sim.place(sim.box('s' + j, 'server' + (S.edited >= 0 ? ' drift' : '')), x, sy, w, G.card);
+        sim.place(sim.box('sn' + j, 'sname'), x + 14, sy + 8, w - 28, 32).textContent = S.name;
+        ROWS.forEach(function (r, i) {
+          var ry = sy + 44 + i * 66, m = S.mark[i];
+          var lb = sim.box('l' + j + i, 'rl' + (G.vertical ? ' v' : '')), ch = sim.box('c' + j + i, 'chip' + (m ? ' ' + m : ''));
+          if (G.vertical) {
+            sim.place(lb, x + 12, ry + 2, w - 24, 22).textContent = r.label;
+            sim.place(ch, x + 12, ry + 26, w - 24, 32).textContent = chipText(s, S, i);
+          } else {
+            sim.place(lb, x + 12, ry + 11, 76, 34).textContent = r.label;
+            sim.place(ch, x + 86, ry + 11, w - 98, 34).textContent = chipText(s, S, i);
+          }
+        });
+        if (S.out) sim.place(sim.box('o' + j, 'out ' + S.out[0]), x, G.outY, w, 38).textContent = S.out[1];
+        if (S.edited >= 0) sim.place(sim.box('e' + j, 'tag'), x + 10, G.tagY, w - 20, 30).textContent = 'edited by hand';
+      });
+
+      // legend
+      var lx = G.legend[0], ly = G.legend[1];
+      [['ok', 'matches the code'], ['diff', 'differs from the code'], ['fixed', 'changed by the last run']].forEach(function (L, i) {
+        sim.place(sim.box('sw' + i, 'sw ' + L[0]), lx + 4, ly + i * 46 + 5, 36, 26);
+        sim.place(sim.box('lg' + i, 'lg'), lx + 54, ly + i * 46, 340, 34).textContent = L[1];
+      });
+      if (!sim.portrait) sim.place(sim.box('div', 'divider'), 459, 10, 2, 520);
+    },
+
+    intro: { caption: 'Desired state lives in the code; actual state is what each server has now. The three servers start different.',
+      why: 'A configuration tool does not replay steps. It reads the desired state, looks at each server and works out what differs. So the same code can bring a fresh server, a half-done one and a finished one to the same end.',
+      code: '' },
+    steps: [
+      { caption: 'A check compares every server with the code and lists what differs: 3 on web-1, 2 on web-2, none on web-3.',
+        why: 'Comparing is the core of the tool: desired minus actual is the work to do. Check mode stops there and changes nothing, so you see the changes before you make them, and you can look for drift without touching anything.',
+        code: 'ansible-playbook site.yml --check --diff',
+        run: function (s, sim) { return check(s, sim); } },
+      { caption: 'Run: the tool changes only what differs. web-1 changed=3, web-2 changed=2, web-3 changed=0. All three converge.',
+        why: 'This is convergence: different starting points end in the same state, and each server gets only the changes it needs. web-3 was already right, so nothing on it was touched, rewritten or restarted.',
+        code: 'ansible-playbook site.yml',
+        run: function (s, sim) { return run(s, sim); } },
+      { caption: 'Someone logs in to web-2 and changes the port to 8080 by hand. The code still says 80: this is drift.',
+        why: 'Drift is any difference between servers and code that the code did not cause: a quick fix over SSH, a click in a console, an update. Nothing reports it, and from now on the code no longer tells the truth about web-2.',
+        code: 'ssh web-2 vi /etc/nginx/conf.d/site.conf',
+        run: function (s) { clearMarks(s); handEdit(s); } },
+      { caption: 'The next check finds the drift: only web-2 differs, 8080 instead of 80. web-1 and web-3 report ok.',
+        why: 'Because the tool compares instead of replaying, it finds drift wherever it came from. A check on a schedule is a cheap drift report: any difference means someone changed a server outside the code.',
+        code: 'ansible-playbook site.yml --check --diff',
+        run: function (s, sim) { return check(s, sim); } },
+      { caption: 'The next run sets only web-2 back to 80: changed=1 there, changed=0 on the others. The hand edit is gone.',
+        why: 'The code wins: the next run reverts a hand edit, usually without telling whoever made it. If 8080 was really needed, the change belongs in the code, where it is reviewed, versioned and applied to every server alike.',
+        code: 'ansible-playbook site.yml',
+        run: function (s, sim) { return run(s, sim); } },
+      { caption: 'To really move to 8080, change the code. The next run changes the port on all three servers the same way.',
+        why: 'Changing the desired state is how you change the system: edit the code, review it, run it. Every server converges to the new value, and Git records who changed it and why. Try the buttons: drift, check, run.',
+        code: 'lineinfile: path=site.conf line=\'listen 8080\'',
+        buttons: ['hand', 'check', 'run', 'port'],
+        run: async function (s, sim) {
+          s.port = '8080'; s.portEdited = true; clearMarks(s); sim.render(); await sim.wait(900);
+          s.portEdited = false; await run(s, sim);
+        } }
+    ],
+    buttons: {
+      hand: { label: 'Hand edit', caption: 'Someone changes a server by hand.',
+        why: 'A hand edit makes one server differ from the code. Nothing reports it until the next check or run, and the next run reverts it.',
+        code: 'ssh web-2',
+        run: function (s, sim) {
+          clearMarks(s); s.portEdited = false;
+          var e = handEdit(s);
+          sim.say('Someone ' + e.what + ' on ' + e.name + ' by hand (' + ROWS[e.row].label + ' ' + e.val + '). The code does not know.', 'ssh ' + e.name);
+        } },
+      check: { label: 'Check', caption: 'A check compares every server with the code and changes nothing.',
+        why: 'Check mode only compares and reports the differences; nothing on the servers changes. Use it after a hand edit to see the drift, or before a run to see what the run would do.',
+        code: 'ansible-playbook site.yml --check --diff',
+        run: async function (s, sim) {
+          await check(s, sim, true);
+          var d = s.servers.filter(function (S) { return S.out[0] === 'warn'; }).map(function (S) { return S.name; });
+          sim.say(d.length ? 'The check finds differences on ' + d.join(', ') + '. Nothing was changed yet.' : 'The check finds no differences: every server matches the code.');
+        } },
+      run: { label: 'Run', caption: 'The tool runs: it compares and changes only what differs.',
+        why: 'A run fixes every difference it finds and leaves matching servers alone, so they report changed=0. Run it as often as you like: once everything matches, a run changes nothing.',
+        code: 'ansible-playbook site.yml',
+        run: async function (s, sim) {
+          var c = await run(s, sim, true), total = c[0] + c[1] + c[2];
+          sim.say(total ? 'The run changes ' + total + ' item' + (total > 1 ? 's' : '') + ': changed=' + c.join(', ') + ' on web-1, web-2, web-3.' : 'The run changes nothing: changed=0 everywhere, the servers already match the code.');
+        } },
+      port: { label: function (s) { return s.port === '80' ? 'Change code to 8080' : 'Change code to 80'; },
+        caption: 'You edit the code. The servers stay as they are until the next run.',
+        why: 'Editing the desired state changes nothing on the servers by itself. The next check shows every server that now differs, and the next run moves all of them to the new value.',
+        code: '',
+        run: function (s, sim) {
+          s.port = s.port === '80' ? '8080' : '80'; s.portEdited = true; clearMarks(s);
+          sim.say('The code now says port ' + s.port + '. The servers still have their old port until the next run.',
+            'lineinfile: path=site.conf line=\'listen ' + s.port + '\'');
+        } }
+    }
+  });
+})();
+</script>
+</body>
+</html>
