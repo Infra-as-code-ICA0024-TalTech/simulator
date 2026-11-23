@@ -195,8 +195,12 @@ body.home { height: auto; min-height: 100%; }
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-sm);
   color: var(--text); text-decoration: none; }
 a.card:hover { box-shadow: var(--shadow); border-color: var(--line-strong); }
-.card.coming { background: #fafafc; }
-.card.coming .ic { opacity: .55; }
+/* Not ready yet: a flat, dashed, grey tile, so ready sims stand out. */
+.card.coming { background: var(--surface-2); border-style: dashed; border-color: var(--line-strong); box-shadow: none;
+  cursor: default; }
+.card.coming .ic, .card.coming h3, .card.coming p, .card.coming .num { opacity: .45; filter: grayscale(1); }
+.card.coming .b-info { filter: grayscale(1); opacity: .6; }
+.card.coming h3 { color: var(--muted); }
 .card .num { position: absolute; top: 12px; right: 14px; font-family: var(--font-mono); font-size: .8rem; color: var(--skip); }
 .card .ic { width: 64px; height: 40px; margin-bottom: 4px; }
 .card h3 { margin: 0; font-size: 1.12rem; color: var(--edge); line-height: 1.25; }

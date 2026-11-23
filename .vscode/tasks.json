@@ -94,7 +94,7 @@
     },
     {
       "label": "just pages",
-      "detail": "Build the GitLab Pages site into public/ like the CI pages job.",
+      "detail": "Build the GitHub Pages site into public/ like the CI build job.",
       "type": "shell",
       "command": "just",
       "args": [

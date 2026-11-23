@@ -16,7 +16,7 @@ open:
 test:
     python3 tests/test_page.py
 
-# Build the GitLab Pages site into public/ like the CI pages job.
+# Build the GitHub Pages site into public/ like the CI build job.
 pages:
     rm -rf public
     mkdir public && cp -r index.html assets sims public/
